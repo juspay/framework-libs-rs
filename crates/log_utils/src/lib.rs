@@ -234,23 +234,24 @@ pub enum LoggerError {
 ///
 /// use log_utils::{
 ///     AdditionalFieldsPlacement, ConsoleLogFormat, ConsoleLoggingConfig, DirectivePrintTarget,
-///     FileLoggingConfig, Level, LoggerConfig, LoggingComponents, Rotation,
-///     build_logging_components,
+///     FileLoggingConfig, Level, LoggerConfig, Rotation, build_logging_components,
 /// };
 /// use serde_json::json;
 /// use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 ///
-/// // Define keys for static fields.
+/// // Define keys for static fields
 /// const SERVICE: &str = "service";
 /// const ENV: &str = "env";
 /// const VERSION: &str = "version";
 /// const BUILD: &str = "build";
 ///
-/// let mut static_fields = HashMap::new();
-/// static_fields.insert(SERVICE.to_string(), json!("my_app"));
-/// static_fields.insert(ENV.to_string(), json!("development"));
-/// static_fields.insert(VERSION.to_string(), json!("0.1.0"));
-/// static_fields.insert(BUILD.to_string(), json!("local_dev_build"));
+/// // Create static top-level fields
+/// let static_fields = HashMap::from([
+///     (SERVICE.to_string(), json!("my_app")),
+///     (ENV.to_string(), json!("development")),
+///     (VERSION.to_string(), json!("0.1.0")),
+///     (BUILD.to_string(), json!("local_dev_build")),
+/// ]);
 ///
 /// let config = LoggerConfig {
 ///     static_top_level_fields: static_fields,
@@ -280,30 +281,21 @@ pub enum LoggerError {
 ///     Ok(components) => {
 ///         let _guards = components.guards; // Keep guards in scope
 ///
-///         let mut subscriber_layers: Vec<
-///             Box<
-///                 dyn tracing_subscriber::Layer<tracing_subscriber::Registry>
-///                     + Send
-///                     + Sync
-///                     + 'static,
-///             >,
-///         > = Vec::new();
+///         // Build the subscriber with all components
+///         let mut layers = Vec::new();
+///         layers.push(components.storage_layer.boxed());
 ///
-///         subscriber_layers.push(components.storage_layer.boxed());
 ///         if let Some(file_layer) = components.file_log_layer {
-///             subscriber_layers.push(file_layer);
+///             layers.push(file_layer);
 ///         }
 ///         if let Some(console_layer) = components.console_log_layer {
-///             subscriber_layers.push(console_layer);
+///             layers.push(console_layer);
 ///         }
 ///
-///         // Add any other layers you want to include
+///         // Initialize the global subscriber
+///         tracing_subscriber::registry().with(layers).init();
 ///
-///         tracing_subscriber::registry()
-///             .with(subscriber_layers)
-///             .init();
-///
-///         tracing::info!("Logging initialized!");
+///         tracing::info!("Logging initialized successfully!");
 ///     }
 ///     Err(e) => eprintln!("Failed to initialize logging: {e}"),
 /// }
