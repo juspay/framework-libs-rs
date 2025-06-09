@@ -1,0 +1,6 @@
+style_edition = "2024"
+
+unstable_features = true
+
+group_imports = "StdExternalCrate" # Unstable
+imports_granularity = "Crate" # Unstable
