@@ -451,3 +451,532 @@ pub fn build_logging_components(config: LoggerConfig) -> Result<LoggingComponent
         guards,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        io::{self, Write},
+        sync::{Arc, Mutex},
+    };
+
+    use serde_json::{Value, json};
+    use tracing::{Level as TracingLevel, info, span};
+    use tracing_subscriber::layer::SubscriberExt;
+
+    use super::*;
+
+    /// A test writer that captures output for verification
+    #[derive(Clone, Debug)]
+    struct TestWriter {
+        buffer: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl TestWriter {
+        fn new() -> Self {
+            Self {
+                buffer: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn get_output(&self) -> String {
+            let buffer = self.buffer.lock().unwrap();
+            String::from_utf8_lossy(&buffer).to_string()
+        }
+    }
+
+    impl Write for TestWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.buffer
+                .lock()
+                .map_err(|_| io::Error::other("Mutex poisoned"))?
+                .extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for TestWriter {
+        type Writer = Self;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    #[test]
+    fn test_json_formatting_layer_basic_output() {
+        let test_writer = TestWriter::new();
+        let static_fields = HashMap::from([("service".to_string(), json!("test_service"))]);
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: static_fields,
+            top_level_keys: HashSet::new(),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+        };
+
+        let layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            info!("Test message");
+        });
+
+        let output = test_writer.get_output();
+        assert!(!output.is_empty());
+
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        assert_eq!(lines.len(), 1);
+
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        // Verify static fields are present
+        assert_eq!(log_entry["service"], "test_service");
+
+        // Verify implicit fields are present
+        assert!(log_entry["message"].is_string());
+        assert!(log_entry["level"].is_string());
+        assert!(log_entry["time"].is_string());
+        assert!(log_entry["hostname"].is_string());
+        assert!(log_entry["pid"].is_number());
+    }
+
+    #[test]
+    fn test_top_level_keys_promotion() {
+        let test_writer = TestWriter::new();
+        let top_level_keys = HashSet::from(["user_id", "request_id"]);
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys,
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+        };
+
+        let layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            info!(
+                user_id = "123",
+                request_id = "req-456",
+                other_field = "value",
+                "Test message"
+            );
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        // Verify top-level keys are promoted
+        assert_eq!(log_entry["user_id"], "123");
+        assert_eq!(log_entry["request_id"], "req-456");
+
+        // Verify other fields are also present at top level (default placement)
+        assert_eq!(log_entry["other_field"], "value");
+    }
+
+    #[test]
+    fn test_nested_fields_placement() {
+        let test_writer = TestWriter::new();
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::from(["user_id"]),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::Nested("extra".to_string()),
+        };
+
+        let layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            info!(
+                user_id = "123",
+                other_field = "value",
+                nested_data = "test",
+                "Test message"
+            );
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        // Verify top-level key is promoted
+        assert_eq!(log_entry["user_id"], "123");
+
+        // Verify other fields are nested under "extra"
+        assert!(log_entry["extra"].is_object());
+        assert_eq!(log_entry["extra"]["other_field"], "value");
+        assert_eq!(log_entry["extra"]["nested_data"], "test");
+    }
+
+    #[test]
+    fn test_span_storage_and_persistence() {
+        let test_writer = TestWriter::new();
+        let persistent_keys = HashSet::from(["user_id", "session_id"]);
+
+        let storage_layer = SpanStorageLayer::new(persistent_keys);
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::from(["user_id", "session_id", "operation"]),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+        };
+
+        let formatting_layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry()
+            .with(storage_layer)
+            .with(formatting_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let outer_span = span!(
+                TracingLevel::INFO,
+                "outer",
+                user_id = "123",
+                session_id = "session-456"
+            );
+            let _outer_guard = outer_span.enter();
+
+            let inner_span = span!(TracingLevel::INFO, "inner", operation = "process");
+            let _inner_guard = inner_span.enter();
+
+            info!("Processing data");
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        // Verify persistent keys from parent span are available
+        assert_eq!(log_entry["user_id"], "123");
+        assert_eq!(log_entry["session_id"], "session-456");
+        assert_eq!(log_entry["operation"], "process");
+    }
+
+    #[test]
+    fn test_span_lifecycle_logging() {
+        let test_writer = TestWriter::new();
+
+        // Need storage layer to capture elapsed time
+        let storage_layer = SpanStorageLayer::new(HashSet::new());
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::new(),
+            log_span_lifecycles: true, // Enable span lifecycle logging
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+        };
+
+        let formatting_layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry()
+            .with(storage_layer)
+            .with(formatting_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = span!(TracingLevel::INFO, "test_span", operation = "test");
+            let _guard = span.enter();
+            info!("Inside span");
+            // Span ends when _guard is dropped
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output
+            .trim()
+            .split('\n')
+            .filter(|l| !l.is_empty())
+            .collect();
+
+        // Should have: span start, event, span end
+        assert_eq!(lines.len(), 3);
+
+        // Parse each log entry
+        let start_entry: Value = serde_json::from_str(lines[0]).unwrap();
+        let event_entry: Value = serde_json::from_str(lines[1]).unwrap();
+        let end_entry: Value = serde_json::from_str(lines[2]).unwrap();
+
+        // Verify span start
+        assert_eq!(
+            start_entry["message"].as_str().unwrap(),
+            "[TEST_SPAN - START]"
+        );
+
+        // Verify event (includes span name prefix when inside a span)
+        assert_eq!(
+            event_entry["message"].as_str().unwrap(),
+            "[TEST_SPAN - EVENT] Inside span"
+        );
+
+        // Verify span end
+        assert_eq!(end_entry["message"].as_str().unwrap(), "[TEST_SPAN - END]");
+        assert!(end_entry["elapsed_milliseconds"].is_number());
+    }
+
+    #[test]
+    fn test_reserved_key_validation() {
+        let static_fields = HashMap::from([("message".to_string(), json!("should_fail"))]);
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: static_fields,
+            top_level_keys: HashSet::new(),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+        };
+
+        let result =
+            JsonFormattingLayer::new(config, TestWriter::new(), serde_json::ser::CompactFormatter);
+
+        // Should fail because "message" is a reserved key
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Configuration error: A reserved key `message` was included in \
+             `static_top_level_fields` in the log formatting layer"
+        );
+    }
+
+    #[test]
+    fn test_invalid_filter_directive() {
+        let config = LoggerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::new(),
+            persistent_keys: HashSet::new(),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            file_config: None,
+            console_config: Some(ConsoleLoggingConfig {
+                level: Level::INFO,
+                log_format: ConsoleLogFormat::CompactJson,
+                filtering_directive: Some("invalid[filter".to_string()), // Invalid syntax
+                print_filtering_directive: DirectivePrintTarget::None,
+            }),
+            global_filtering_directive: None,
+        };
+
+        let result = build_logging_components(config);
+
+        assert!(matches!(
+            result,
+            Err(LoggerError::InvalidFilteringDirective(_))
+        ));
+    }
+
+    #[test]
+    fn test_build_logging_components_with_all_options() {
+        use std::num::NonZeroUsize;
+
+        let static_fields = HashMap::from([("service".to_string(), json!("test_service"))]);
+
+        let config = LoggerConfig {
+            static_top_level_fields: static_fields,
+            top_level_keys: HashSet::from(["user_id"]),
+            persistent_keys: HashSet::from(["session_id"]),
+            log_span_lifecycles: true,
+            additional_fields_placement: AdditionalFieldsPlacement::Nested("extra".to_string()),
+            file_config: Some(FileLoggingConfig {
+                directory: std::env::temp_dir().to_string_lossy().to_string(),
+                file_name_prefix: "test_log".to_string(),
+                file_rotation: Rotation::NEVER,
+                max_log_files: NonZeroUsize::new(1),
+                level: Level::DEBUG,
+                filtering_directive: Some("debug".to_string()),
+                print_filtering_directive: DirectivePrintTarget::None,
+            }),
+            console_config: Some(ConsoleLoggingConfig {
+                level: Level::INFO,
+                log_format: ConsoleLogFormat::CompactJson,
+                filtering_directive: Some("info".to_string()),
+                print_filtering_directive: DirectivePrintTarget::None,
+            }),
+            global_filtering_directive: Some("warn".to_string()),
+        };
+
+        let result = build_logging_components(config);
+        assert!(result.is_ok());
+
+        let components = result.unwrap();
+        assert!(components.file_log_layer.is_some());
+        assert!(components.console_log_layer.is_some());
+        assert_eq!(components.guards.len(), 2); // One for file, one for console
+    }
+
+    #[test]
+    fn test_file_logging_with_comprehensive_configuration() {
+        use std::{fs, num::NonZeroUsize};
+
+        // Create a temporary directory for test logs
+        let temp_dir = std::env::temp_dir().join("log_utils_test");
+        let _ = fs::create_dir_all(&temp_dir);
+
+        let static_fields = HashMap::from([
+            ("service".to_string(), json!("integration_test")),
+            ("version".to_string(), json!("1.0.0")),
+        ]);
+
+        let config = LoggerConfig {
+            static_top_level_fields: static_fields,
+            top_level_keys: HashSet::from(["request_id", "user_id"]),
+            persistent_keys: HashSet::from(["session_id", "trace_id"]),
+            log_span_lifecycles: true,
+            additional_fields_placement: AdditionalFieldsPlacement::Nested("context".to_string()),
+            file_config: Some(FileLoggingConfig {
+                directory: temp_dir.to_string_lossy().to_string(),
+                file_name_prefix: "integration_test".to_string(),
+                file_rotation: Rotation::NEVER,
+                max_log_files: NonZeroUsize::new(1),
+                level: Level::DEBUG,
+                filtering_directive: Some("debug".to_string()),
+                print_filtering_directive: DirectivePrintTarget::None,
+            }),
+            console_config: None, // Only test file logging
+            global_filtering_directive: Some("info".to_string()),
+        };
+
+        let result = build_logging_components(config);
+        assert!(result.is_ok());
+
+        let components = result.unwrap();
+        assert!(components.file_log_layer.is_some());
+        assert!(components.console_log_layer.is_none());
+        assert_eq!(components.guards.len(), 1); // Only file guard
+
+        let mut layers = Vec::new();
+        layers.push(components.storage_layer.boxed());
+        if let Some(file_layer) = components.file_log_layer {
+            layers.push(file_layer);
+        }
+
+        let subscriber = tracing_subscriber::registry().with(layers);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let outer_span = span!(
+                TracingLevel::INFO,
+                "request_handler",
+                session_id = "session_123",
+                trace_id = "trace_456"
+            );
+            let _outer_guard = outer_span.enter();
+
+            info!(
+                request_id = "req_789",
+                user_id = "user_101",
+                endpoint = "/api/users",
+                method = "GET",
+                "Processing user request"
+            );
+
+            let inner_span = span!(TracingLevel::DEBUG, "database_query", table = "users");
+            let _inner_guard = inner_span.enter();
+
+            info!(
+                query_time_ms = 45,
+                rows_returned = 1,
+                "Database query completed"
+            );
+        });
+
+        // Drop guards to ensure logs are flushed
+        drop(components.guards);
+
+        // Read the log file
+        let log_files: Vec<_> = fs::read_dir(&temp_dir)
+            .unwrap()
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                let path = entry.path();
+                if path.is_file() && path.file_name()?.to_str()?.starts_with("integration_test") {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert!(
+            !log_files.is_empty(),
+            "Should have created at least one log file"
+        );
+
+        let log_content = fs::read_to_string(&log_files[0]).unwrap();
+        assert!(!log_content.is_empty());
+
+        let lines: Vec<&str> = log_content
+            .trim()
+            .split('\n')
+            .filter(|l| !l.trim().is_empty())
+            .collect();
+
+        // Should have multiple log entries due to span lifecycle logging
+        assert!(lines.len() >= 3);
+
+        // Find the main event log entry (not span start/end)
+        let main_log_line = lines
+            .iter()
+            .find(|line| line.contains("Processing user request"))
+            .expect("Should find main log entry");
+
+        let log_entry: Value = serde_json::from_str(main_log_line).unwrap();
+
+        // Verify static fields
+        assert_eq!(log_entry["service"], "integration_test");
+        assert_eq!(log_entry["version"], "1.0.0");
+
+        // Verify top-level promoted keys
+        assert_eq!(log_entry["request_id"], "req_789");
+        assert_eq!(log_entry["user_id"], "user_101");
+
+        // Verify persistent keys from parent span (should be in context since we're using nested placement)
+        assert!(log_entry["context"].is_object());
+        assert_eq!(log_entry["context"]["session_id"], "session_123");
+        assert_eq!(log_entry["context"]["trace_id"], "trace_456");
+
+        // Verify nested context fields
+        assert!(log_entry["context"].is_object());
+        assert_eq!(log_entry["context"]["endpoint"], "/api/users");
+        assert_eq!(log_entry["context"]["method"], "GET");
+
+        // Verify standard fields
+        assert!(log_entry["message"].is_string());
+        assert!(log_entry["level"].is_string());
+        assert!(log_entry["time"].is_string());
+
+        // Clean up
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+}
