@@ -51,7 +51,7 @@ impl<'a> Storage<'a> {
     /// If the `key` is one of the [`IMPLICIT_KEYS`][crate::keys::IMPLICIT_KEYS],
     /// a warning is logged, and the value is not inserted.
     pub(crate) fn record_value(&mut self, key: &'a str, value: serde_json::Value) {
-        if crate::keys::IMPLICIT_KEYS.contains(key) {
+        if super::keys::IMPLICIT_KEYS.contains(key) {
             tracing::warn!(
                 "Attempting to record a reserved key `{key}` (value: {value:?}). Skipping."
             );
@@ -72,7 +72,7 @@ impl<'a> Storage<'a> {
 // Implement `Visit` to capture span or event fields into the `Storage` map.
 impl Visit for Storage<'_> {
     fn record_f64(&mut self, field: &Field, value: f64) {
-        if field.name() == crate::keys::MESSAGE {
+        if field.name() == super::keys::MESSAGE {
             if self.message.is_none() {
                 self.message = Some(value.to_string());
             }
@@ -82,7 +82,7 @@ impl Visit for Storage<'_> {
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        if field.name() == crate::keys::MESSAGE {
+        if field.name() == super::keys::MESSAGE {
             if self.message.is_none() {
                 self.message = Some(value.to_string());
             }
@@ -92,7 +92,7 @@ impl Visit for Storage<'_> {
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        if field.name() == crate::keys::MESSAGE {
+        if field.name() == super::keys::MESSAGE {
             if self.message.is_none() {
                 self.message = Some(value.to_string());
             }
@@ -102,7 +102,7 @@ impl Visit for Storage<'_> {
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        if field.name() == crate::keys::MESSAGE {
+        if field.name() == super::keys::MESSAGE {
             if self.message.is_none() {
                 self.message = Some(value.to_string());
             }
@@ -112,7 +112,7 @@ impl Visit for Storage<'_> {
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
-        if field.name() == crate::keys::MESSAGE {
+        if field.name() == super::keys::MESSAGE {
             self.message = Some(value.to_string()); // `record_str()` is preferred for `message`
         } else {
             self.record_value(field.name(), serde_json::Value::from(value));
@@ -120,7 +120,7 @@ impl Visit for Storage<'_> {
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
-        if field.name() == crate::keys::MESSAGE {
+        if field.name() == super::keys::MESSAGE {
             if self.message.is_none() {
                 // Only use debug if `record_str()` hasn't set it
                 self.message = Some(format!("{value:?}"));
@@ -235,7 +235,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
 
         // Record elapsed time in the span's storage
         if let Ok(elapsed_time_value) = serde_json::to_value(elapsed_milliseconds) {
-            visitor.record_value(crate::keys::ELAPSED_MILLISECONDS, elapsed_time_value);
+            visitor.record_value(super::keys::ELAPSED_MILLISECONDS, elapsed_time_value);
         }
     }
 }

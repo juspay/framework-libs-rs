@@ -19,7 +19,7 @@ use tracing_subscriber::{
     registry::{LookupSpan, SpanRef},
 };
 
-use crate::{AdditionalFieldsPlacement, LoggerError, storage::Storage};
+use super::{AdditionalFieldsPlacement, LoggerError, storage::Storage};
 
 /// Configuration for creating a [`JsonFormattingLayer`].
 ///
@@ -113,7 +113,7 @@ where
         let hostname = gethostname::gethostname().to_string_lossy().into_owned();
 
         for key in config.static_top_level_fields.keys() {
-            if crate::keys::IMPLICIT_KEYS.contains(key.as_str()) {
+            if super::keys::IMPLICIT_KEYS.contains(key.as_str()) {
                 return Err(LoggerError::Configuration(format!(
                     "A reserved key `{key}` was included in `static_top_level_fields` in the \
                      log formatting layer"
@@ -141,7 +141,7 @@ where
         name: &str,
         message: &str,
     ) -> Result<(), LoggerError> {
-        use crate::keys;
+        use super::keys;
 
         map_serializer.serialize_entry(keys::MESSAGE, message)?;
         map_serializer.serialize_entry(keys::HOSTNAME, &self.hostname)?;
@@ -195,7 +195,7 @@ where
         if let Some(storage) = storage {
             // Serialize event fields
             for (key, value) in storage.values() {
-                if crate::keys::IMPLICIT_KEYS.contains(*key) {
+                if super::keys::IMPLICIT_KEYS.contains(*key) {
                     tracing::warn!(
                         "Attempting to log a reserved key `{key}` (value: `{value:?}`) via event. \
                          Skipping."
@@ -225,7 +225,7 @@ where
                     .iter()
                     .filter(|(k, _v)| !explicit_entries_set.contains(*k))
                 {
-                    if crate::keys::IMPLICIT_KEYS.contains(*key) {
+                    if super::keys::IMPLICIT_KEYS.contains(*key) {
                         tracing::warn!(
                             "Attempting to log a reserved key `{key}` (value: `{value:?}`) via span. \
                              Skipping."
