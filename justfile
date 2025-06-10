@@ -36,3 +36,6 @@ test *FLAGS:
     cargo test --doc --all-features
 
 alias t := test
+
+hack *FLAGS:
+    cargo hack check --each-feature --all-targets {{ FLAGS }}
