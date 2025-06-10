@@ -87,6 +87,9 @@
 //! }
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(test(attr(deny(warnings))))]
+
 mod formatter;
 mod storage;
 

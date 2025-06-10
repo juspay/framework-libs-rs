@@ -26,13 +26,13 @@ doc_flags := '--all-features'
 
 # Generate documentation
 doc *FLAGS:
-    cargo doc {{ doc_flags }} {{ FLAGS }}
+    RUSTDOCFLAGS='--generate-link-to-definition --cfg docsrs -Z unstable-options' cargo +nightly doc {{ doc_flags }} {{ FLAGS }}
 
 alias d := doc
 
 # Run tests and documentation tests
 test *FLAGS:
-    cargo nextest run --no-tests warn --config-file .nextest.toml {{ FLAGS }}
-    cargo test --doc
+    cargo nextest run --no-tests warn --config-file .nextest.toml --all-features {{ FLAGS }}
+    cargo test --doc --all-features
 
 alias t := test
