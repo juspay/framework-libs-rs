@@ -23,10 +23,12 @@ clippy *FLAGS:
 alias cl := clippy
 
 doc_flags := '--all-features'
+deny_doc_warnings := 'false'
+rustdocflags := (if deny_doc_warnings == "true" { "-D warnings " } else { "" }) + '--generate-link-to-definition --cfg docsrs -Z unstable-options'
 
 # Generate documentation
 doc *FLAGS:
-    RUSTDOCFLAGS='--generate-link-to-definition --cfg docsrs -Z unstable-options' cargo +nightly doc {{ doc_flags }} {{ FLAGS }}
+    RUSTDOCFLAGS='{{ rustdocflags }}' cargo +nightly doc {{ doc_flags }} {{ FLAGS }}
 
 alias d := doc
 
