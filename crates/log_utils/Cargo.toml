@@ -1,9 +1,11 @@
 [package]
 name = "log_utils"
+description = "Utilities for logging in Rust applications"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+readme = "README.md"
 
 [package.metadata.docs.rs]
 all-features = true
