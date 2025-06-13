@@ -56,7 +56,7 @@
 //!     log_span_lifecycles: false,
 //!     additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
 //!     file_config: Some(FileLoggingConfig {
-//!         directory: "logs".to_string(),
+//!         directory: std::env::temp_dir().to_string_lossy().to_string(),
 //!         file_name_prefix: "my_app_log".to_string(),
 //!         file_rotation: Rotation::DAILY,
 //!         max_log_files: NonZeroUsize::new(7),
