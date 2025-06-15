@@ -5,9 +5,13 @@
 
 #[cfg(feature = "cargo_workspace")]
 mod cargo_workspace;
+#[cfg(feature = "vergen-gix")]
+mod vergen;
 
 #[cfg(feature = "cargo_workspace")]
 pub use cargo_workspace::set_cargo_workspace_members_env;
+#[cfg(feature = "vergen-gix")]
+pub use vergen::generate_vergen_cargo_instructions;
 
 /// Obtain the crates in the framework libs repository's workspace as a `HashSet`.
 ///
