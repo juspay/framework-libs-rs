@@ -16,7 +16,7 @@
 /// # Panics
 ///
 /// Panics if any of the `vergen` emitters fail to generate the instructions.
-#[allow(clippy::expect_used, reason = "panics are acceptable in build scripts")]
+#[allow(clippy::expect_used)] // Panics are acceptable in build scripts
 pub fn generate_vergen_cargo_instructions() {
     use vergen_gix::{BuildBuilder, CargoBuilder, Emitter, GixBuilder, RustcBuilder};
 
