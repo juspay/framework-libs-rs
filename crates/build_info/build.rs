@@ -1,17 +1,11 @@
 #![allow(missing_docs)]
 
-#[cfg(all(
-    feature = "cargo-workspace-build",
-    feature = "framework-libs-members-env"
-))]
+#[cfg(feature = "framework-libs-members-env")]
 mod cargo_workspace {
     include!("src/cargo_workspace.rs");
 }
 
 fn main() {
-    #[cfg(all(
-        feature = "cargo-workspace-build",
-        feature = "framework-libs-members-env"
-    ))]
+    #[cfg(feature = "framework-libs-members-env")]
     cargo_workspace::set_cargo_workspace_members_env();
 }

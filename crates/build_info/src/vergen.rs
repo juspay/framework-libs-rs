@@ -5,6 +5,7 @@
 /// variables are available to the corresponding crate at compile time.
 ///
 /// The generated instructions would provide the following information:
+///
 /// - Build date and timestamp
 /// - Cargo's target triple
 /// - Rust compiler version, commit date and commit hash
@@ -16,6 +17,13 @@
 /// # Panics
 ///
 /// Panics if any of the `vergen` emitters fail to generate the instructions.
+///
+/// # Example
+///
+/// ```
+/// // In your crate's build script (build.rs):
+/// build_info::generate_vergen_cargo_instructions();
+/// ```
 #[allow(clippy::expect_used)] // Panics are acceptable in build scripts
 pub fn generate_vergen_cargo_instructions() {
     use vergen_gix::{BuildBuilder, CargoBuilder, Emitter, GixBuilder, RustcBuilder};
