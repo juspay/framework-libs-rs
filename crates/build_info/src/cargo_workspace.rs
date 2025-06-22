@@ -36,37 +36,6 @@ pub fn set_cargo_workspace_members_env() {
     .expect("Failed to set `CARGO_WORKSPACE_MEMBERS` environment variable");
 }
 
-/// Obtain the crates in the current cargo workspace as a `HashSet`.
-///
-/// This macro requires that [`set_cargo_workspace_members_env()`] function be called in the
-/// build script of the crate where this macro is being called.
-///
-/// # Errors
-///
-/// Causes a compilation error if the `CARGO_WORKSPACE_MEMBERS` environment variable is unset.
-///
-/// # Example
-///
-/// ```
-/// // In your crate's build script (build.rs):
-/// build_info::set_cargo_workspace_members_env();
-///
-/// # #[cfg(feature = "framework-libs-members-env")]
-/// # {
-/// // In your crate:
-/// let members = build_info::cargo_workspace_members!();
-/// assert!(members.contains(env!("CARGO_PKG_NAME")));
-/// # }
-/// ```
-#[macro_export]
-macro_rules! cargo_workspace_members {
-    () => {
-        std::env!("CARGO_WORKSPACE_MEMBERS")
-            .split(',')
-            .collect::<std::collections::HashSet<&'static str>>()
-    };
-}
-
 #[cfg(test)]
 mod tests {
     #[test]
@@ -88,16 +57,16 @@ mod tests {
     #[test]
     fn test_cargo_workspace_members_contains_current_crate() {
         let env_value = env!("CARGO_WORKSPACE_MEMBERS");
+        let current_crate = env!("CARGO_PKG_NAME");
+
         assert!(
-            env_value
-                .split(',')
-                .any(|name| name == env!("CARGO_PKG_NAME")),
+            env_value.split(',').any(|name| name == current_crate),
             "Current crate is not present in the `CARGO_WORKSPACE_MEMBERS` environment variable"
         );
 
         let members = crate::cargo_workspace_members!();
         assert!(
-            members.contains(env!("CARGO_PKG_NAME")),
+            members.contains(current_crate),
             "Current crate is not present in the output of `cargo_workspace_members!()` macro"
         );
     }

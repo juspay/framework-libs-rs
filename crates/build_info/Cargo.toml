@@ -12,9 +12,10 @@ all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
-cargo-workspace = ["dep:cargo_metadata"]
-framework-libs-members-env = []
-vergen-gix = ["dep:vergen-gix"]
+cargo-workspace-build = ["dep:cargo_metadata"]
+cargo-workspace = []
+vergen-gix-build = ["dep:vergen-gix"]
+framework-libs-members-env = ["cargo-workspace"]
 
 [dependencies]
 cargo_metadata = { version = "0.19.2", optional = true }
