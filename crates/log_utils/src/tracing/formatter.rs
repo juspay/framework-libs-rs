@@ -156,7 +156,7 @@ where
             &format_args!("{}::{}", metadata.target(), name),
         )?;
 
-        if let Ok(time) = time::OffsetDateTime::now_utc().format(&Iso8601::DEFAULT) {
+        if let Ok(time) = time::UtcDateTime::now().format(&Iso8601::DEFAULT) {
             map_serializer.serialize_entry(keys::TIME, &time)?;
         }
 
