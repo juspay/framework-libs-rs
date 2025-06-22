@@ -12,8 +12,8 @@ all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
-cargo_workspace = ["dep:cargo_metadata"]
-framework_libs_members_env = []
+cargo-workspace = ["dep:cargo_metadata"]
+framework-libs-members-env = []
 vergen-gix = ["dep:vergen-gix"]
 
 [dependencies]

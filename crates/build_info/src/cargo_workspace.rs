@@ -51,7 +51,7 @@ pub fn set_cargo_workspace_members_env() {
 /// // In your crate's build script (build.rs):
 /// build_info::set_cargo_workspace_members_env();
 ///
-/// # #[cfg(feature = "framework_libs_members_env")]
+/// # #[cfg(feature = "framework-libs-members-env")]
 /// # {
 /// // In your crate:
 /// let members = build_info::cargo_workspace_members!();
@@ -84,7 +84,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "framework_libs_members_env")]
+    #[cfg(feature = "framework-libs-members-env")]
     #[test]
     fn test_cargo_workspace_members_contains_current_crate() {
         let env_value = env!("CARGO_WORKSPACE_MEMBERS");
