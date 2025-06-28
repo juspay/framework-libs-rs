@@ -93,6 +93,17 @@
 //! # }
 //! ```
 //!
+//! ### `vergen-gix`
+//!
+//! Provides macros for accessing vergen-generated environment variables at runtime.
+//!
+//! #### Example
+//!
+//! Refer to the [`vergen_integration` example][vergen-integration-example] for a complete example
+//! of using the `vergen-gix` feature.
+//!
+//! [vergen-integration-example]: https://github.com/juspay/framework-libs-rs/tree/main/examples/vergen_integration
+//!
 //! ### `framework-libs-members-env`
 //!
 //! Allows access to the [`framework-libs-rs`][framework-libs-rs-github] repository's cargo
@@ -126,6 +137,8 @@
 mod cargo_workspace;
 #[cfg(feature = "vergen-gix-build")]
 mod vergen;
+#[cfg(feature = "vergen-gix")]
+mod vergen_macros;
 
 #[cfg(feature = "cargo-workspace-build")]
 pub use cargo_workspace::set_cargo_workspace_members_env;

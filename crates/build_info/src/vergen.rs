@@ -28,6 +28,9 @@
 pub fn generate_vergen_cargo_instructions() {
     use vergen_gix::{BuildBuilder, CargoBuilder, Emitter, GixBuilder, RustcBuilder};
 
+    // Update the `vergen_macros` module if enabling new instructions,
+    // along with the `vergen_integration` example.
+
     Emitter::default()
         .add_instructions(
             &BuildBuilder::default()
