@@ -6,6 +6,7 @@ However, we aim to keep these libraries generic enough so that they remain usefu
 ## Available Crates
 
 - [`log_utils`](crates/log_utils/): A configurable logging infrastructure built on the [`tracing`](https://github.com/tokio-rs/tracing) ecosystem.
+- [`build_info`](crates/build_info/): Utilities for extracting information about the build environment and Cargo workspace.
 
 ## Roadmap
 
