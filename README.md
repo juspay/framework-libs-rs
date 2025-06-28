@@ -1,5 +1,13 @@
 # Rust Framework Libraries
 
+[![Apache-2.0 licensed][license-badge]][license-url]
+[![CI Status][actions-badge]][actions-url]
+
+[license-badge]: https://img.shields.io/badge/license-Apache--2.0-green.svg
+[license-url]: LICENSE
+[actions-badge]: https://github.com/juspay/framework-libs-rs/actions/workflows/ci.yaml/badge.svg
+[actions-url]: https://github.com/juspay/framework-libs-rs/actions/workflows/ci.yaml
+
 This repository provides a collection of Rust libraries and utilities to aid application and service development within Juspay.
 However, we aim to keep these libraries generic enough so that they remain useful for the broader Rust community as well.
 
