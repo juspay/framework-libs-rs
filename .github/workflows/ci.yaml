@@ -162,6 +162,58 @@ jobs:
         shell: bash
         run: just deny_doc_warnings=true doc
 
+  coverage:
+    name: Run tests with coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable toolchain)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable 2 weeks ago
+          components: llvm-tools-preview
+
+        # Nightly toolchain is required for obtaining coverage data from doc tests.
+      - name: Install Rust (nightly toolchain)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2.7.8
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+          checksum: true
+
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+          checksum: true
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+          checksum: true
+
+      - name: Collect coverage data (including doctests)
+        shell: bash
+        run: just coverage ci
+
+      - name: Upload coverage data to Codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: lcov.info
+
   typos:
     name: Spell check
     runs-on: ubuntu-latest
