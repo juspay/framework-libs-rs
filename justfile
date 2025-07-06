@@ -32,12 +32,22 @@ doc *FLAGS:
 
 alias d := doc
 
+nextest_flags := '--no-tests warn --config-file .nextest.toml --all-features'
+doctest_flags := '--all-features'
+
 # Run tests and documentation tests
 test *FLAGS:
-    cargo nextest run --no-tests warn --config-file .nextest.toml --all-features {{ FLAGS }}
-    cargo test --doc --all-features
+    cargo nextest run {{ nextest_flags }} {{ FLAGS }}
+    cargo test --doc {{ doctest_flags }}
 
 alias t := test
 
 hack *FLAGS:
     cargo hack check --each-feature --all-targets {{ FLAGS }}
+
+# Run tests and documentation tests with coverage
+coverage environment='development':
+    cargo llvm-cov --no-report nextest {{ nextest_flags }} {{ if environment == 'ci' { '--profile ci' } else { '' } }}
+    cargo +nightly llvm-cov --no-report --doc {{ doctest_flags }}
+
+    cargo +nightly llvm-cov report --doctests {{ if environment == 'ci' { '--lcov --output-path lcov.info' } else { '--html' } }}
