@@ -48,7 +48,7 @@ mod tests {
             metadata
                 .workspace_packages()
                 .iter()
-                .any(|package| package.name == env!("CARGO_PKG_NAME")),
+                .any(|package| package.name.to_string() == env!("CARGO_PKG_NAME")),
             "Current crate is not present in `cargo metadata` output"
         );
     }
