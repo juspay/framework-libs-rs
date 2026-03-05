@@ -30,7 +30,7 @@ To get a reference to the inner value from the secret, use `peek()`:
 use masking::{PeekInterface, Secret};
 
 let card_number: Secret<String> = Secret::new(String::from("1234 5678 9012 3456"));
-let last4_digits: &str = card_number.peek();
+let _card_number_str: &str = card_number.peek();
 ```
 
 To get the owned inner value from the secret, use `expose()`:
@@ -39,7 +39,7 @@ To get the owned inner value from the secret, use `expose()`:
 use masking::{ExposeInterface, Secret};
 
 let card_number: Secret<String> = Secret::new(String::from("1234 5678 9012 3456"));
-let last4_digits: String = card_number.expose();
+let _card_number_string: String = card_number.expose();
 ```
 
 For fields that are `Option<T>`, you can use `expose_option()`:
@@ -49,9 +49,9 @@ use masking::{ExposeOptionInterface, Secret};
 
 let card_number: Option<Secret<String>> = Some(Secret::new(String::from("1234 5678 9012 3456")));
 let card_number_str: String = card_number.expose_option().unwrap_or_default();
-assert_eq!(format!("{}", card_number_str), "1234 5678 9012 3456");
+assert_eq!(format!("{card_number_str}"), "1234 5678 9012 3456");
 
 let card_number: Option<Secret<String>> = None;
 let card_number_str: String = card_number.expose_option().unwrap_or_default();
-assert_eq!(format!("{}", card_number_str), "");
+assert_eq!(format!("{card_number_str}"), "");
 ```

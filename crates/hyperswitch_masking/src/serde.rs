@@ -15,10 +15,7 @@ use crate::{Secret, Strategy, StrongSecret, ZeroizableSecret};
 ///
 /// This is done deliberately to prevent accidental exfiltration of secrets
 /// via `serde` serialization.
-#[cfg_attr(docsrs, cfg(feature = "serde"))]
 pub trait SerializableSecret: Serialize {}
-// #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-// pub trait NonSerializableSecret: Serialize {}
 
 impl SerializableSecret for Value {}
 impl SerializableSecret for u8 {}
@@ -98,11 +95,11 @@ pub fn masked_serialize<T: Serialize>(value: &T) -> Result<Value, serde_json::Er
 
 /// Masked serialization.
 ///
-/// Trait object for supporting serialization to Value while accounting for masking
-/// The usual Serde Serialize trait cannot be used as trait objects
-/// like &dyn Serialize or boxed trait objects like Box<dyn Serialize> because of Rust's "object safety" rules.
+/// Trait object for supporting serialization to [`Value`] while accounting for masking.
+/// The usual `serde` [`Serialize`] trait cannot be used as trait objects
+/// like `&dyn Serialize` or boxed trait objects like `Box<dyn Serialize>` because of Rust's "object safety" rules.
 /// In particular, the trait contains generic methods which cannot be made into a trait object.
-/// In this case we remove the generic for assuming the serialization to be of 2 types only raw json or masked json
+/// In this case we remove the generic for assuming the serialization to be of 2 types only raw JSON or masked JSON.
 pub trait ErasedMaskSerialize: ErasedSerialize {
     /// Masked serialization.
     fn masked_serialize(&self) -> Result<Value, serde_json::Error>;

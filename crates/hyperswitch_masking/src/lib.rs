@@ -1,6 +1,5 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg_hide))]
-#![cfg_attr(docsrs, doc(cfg_hide(doc)))]
-#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(test(attr(deny(warnings))))]
 
 //! Personal Identifiable Information protection. Wrapper types and traits for secret management which help ensure they aren't accidentally copied, logged, or otherwise exposed (as much as possible), and also ensure secrets are securely wiped from memory when dropped.
 //! Secret-keeping library inspired by secrecy.

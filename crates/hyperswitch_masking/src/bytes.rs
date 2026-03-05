@@ -8,13 +8,12 @@ use serde::de::{self, Deserialize};
 
 use super::{PeekInterface, ZeroizableSecret};
 
-/// Instance of [`BytesMut`] protected by a type that impls the [`ExposeInterface`]
+/// Instance of [`BytesMut`] protected by a type that impls the [`PeekInterface`]
 /// trait like `Secret<T>`.
 ///
-/// Because of the nature of how the `BytesMut` type works, it needs some special
+/// Because of the nature of how the [`BytesMut`] type works, it needs some special
 /// care in order to have a proper zeroizing drop handler.
 #[derive(Clone)]
-#[cfg_attr(docsrs, cfg(feature = "bytes"))]
 pub struct SecretBytesMut(BytesMut);
 
 impl SecretBytesMut {
