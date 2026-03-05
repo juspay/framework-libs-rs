@@ -45,13 +45,6 @@ pub use crate::serde::{
     Deserialize, ErasedMaskSerialize, SerializableSecret, Serialize, masked_serialize,
 };
 
-/// This module should be included with asterisk.
-///
-/// `use hyperswitch_masking::prelude::*;`
-pub mod prelude {
-    pub use super::{ExposeInterface, ExposeOptionInterface, PeekInterface};
-}
-
 #[cfg(feature = "diesel")]
 mod diesel;
 
