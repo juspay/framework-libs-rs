@@ -1,5 +1,5 @@
 [package]
-name = "masking"
+name = "hyperswitch_masking"
 description = "Personal Identifiable Information protection. Wrapper types and traits for secret management which help ensure they aren't accidentally copied, logged, or otherwise exposed (as much as possible), and also ensure secrets are securely wiped from memory when dropped."
 version = "0.1.0"
 edition.workspace = true

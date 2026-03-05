@@ -1588,6 +1588,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12cb882ccb290b8646e554b157ab0b71e64e8d5bef775cd66b6531e52d302669"
 
 [[package]]
+name = "hyperswitch_masking"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "diesel",
+ "erased-serde",
+ "prost",
+ "scylla",
+ "serde",
+ "serde_json",
+ "subtle",
+ "time",
+ "url",
+ "zeroize",
+]
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1914,23 +1931,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08ab2867e3eeeca90e844d1940eab391c9dc5228783db2ed999acbc0a9ed375a"
 dependencies = [
  "twox-hash",
-]
-
-[[package]]
-name = "masking"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "diesel",
- "erased-serde",
- "prost",
- "scylla",
- "serde",
- "serde_json",
- "subtle",
- "time",
- "url",
- "zeroize",
 ]
 
 [[package]]

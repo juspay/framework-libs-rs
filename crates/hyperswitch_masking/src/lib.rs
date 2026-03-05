@@ -47,7 +47,7 @@ pub use crate::serde::{
 
 /// This module should be included with asterisk.
 ///
-/// `use masking::prelude::*;`
+/// `use hyperswitch_masking::prelude::*;`
 pub mod prelude {
     pub use super::{ExposeInterface, ExposeOptionInterface, PeekInterface};
 }

@@ -1,10 +1,10 @@
 #![expect(missing_docs)]
 
-use masking::Secret;
+use hyperswitch_masking::Secret;
 #[cfg(feature = "serde")]
-use masking::SerializableSecret;
+use hyperswitch_masking::SerializableSecret;
 #[cfg(feature = "alloc")]
-use masking::ZeroizableSecret;
+use hyperswitch_masking::ZeroizableSecret;
 #[cfg(feature = "serde")]
 use serde::Serialize;
 

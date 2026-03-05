@@ -19,7 +19,7 @@ use crate::{PeekInterface, StrongSecret, strategy::Strategy};
 /// ```
 /// use std::fmt;
 ///
-/// use masking::{Secret, Strategy};
+/// use hyperswitch_masking::{Secret, Strategy};
 ///
 /// enum MyStrategy {}
 ///
