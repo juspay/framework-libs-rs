@@ -1,5 +1,5 @@
 use scylla::{
-    deserialize::DeserializeValue,
+    deserialize::value::DeserializeValue,
     frame::response::result::ColumnType,
     serialize::{
         SerializationError,
