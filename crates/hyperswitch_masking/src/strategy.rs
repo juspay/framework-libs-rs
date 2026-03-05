@@ -20,6 +20,7 @@ impl<T> Strategy<T> for WithType {
 }
 
 /// Debug without type
+#[derive(Debug, Copy, Clone)]
 pub enum WithoutType {}
 
 impl<T> Strategy<T> for WithoutType {

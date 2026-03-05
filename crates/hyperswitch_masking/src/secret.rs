@@ -189,6 +189,7 @@ impl AsRef<[u8]> for Secret<Vec<u8>> {
 
 /// Strategy for masking JSON values
 #[cfg(feature = "serde")]
+#[derive(Debug, Copy, Clone)]
 pub enum JsonMaskStrategy {}
 
 #[cfg(feature = "serde")]
