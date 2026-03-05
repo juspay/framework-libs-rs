@@ -22,7 +22,7 @@ clippy *FLAGS:
 
 alias cl := clippy
 
-doc_flags := '--all-features'
+doc_flags := '--all-features --workspace --no-deps'
 deny_doc_warnings := 'false'
 rustdocflags := (if deny_doc_warnings == "true" { "-D warnings " } else { "" }) + '--generate-link-to-definition --cfg docsrs -Z unstable-options'
 
