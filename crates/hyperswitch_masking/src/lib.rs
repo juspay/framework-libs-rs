@@ -6,51 +6,42 @@
 
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR" ), "/", "README.md"))]
 
-pub use zeroize::{self, DefaultIsZeroes, Zeroize as ZeroizableSecret};
-
-mod strategy;
-
-pub use strategy::{Strategy, WithType, WithoutType};
-mod abs;
-pub use abs::{ExposeInterface, ExposeOptionInterface, PeekInterface, SwitchStrategy};
-
-mod secret;
-mod strong_secret;
-#[cfg(feature = "serde")]
-pub use secret::JsonMaskStrategy;
-pub use secret::Secret;
-pub use strong_secret::StrongSecret;
-
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+mod abs;
 #[cfg(feature = "alloc")]
 mod boxed;
-
 #[cfg(feature = "bytes")]
 mod bytes;
-#[cfg(feature = "bytes")]
-pub use self::bytes::SecretBytesMut;
-
+#[cfg(feature = "cassandra")]
+mod cassandra;
+#[cfg(feature = "diesel")]
+mod diesel;
+mod maskable;
+mod secret;
+#[cfg(feature = "serde")]
+mod serde;
+mod strategy;
 #[cfg(feature = "alloc")]
 mod string;
-
+mod strong_secret;
 #[cfg(feature = "alloc")]
 mod vec;
 
-#[cfg(feature = "serde")]
-mod serde;
-#[cfg(feature = "serde")]
-pub use crate::serde::{
-    Deserialize, ErasedMaskSerialize, SerializableSecret, Serialize, masked_serialize,
+pub use zeroize::{self, DefaultIsZeroes, Zeroize as ZeroizableSecret};
+
+#[cfg(feature = "bytes")]
+pub use self::bytes::SecretBytesMut;
+pub use self::{
+    abs::{ExposeInterface, ExposeOptionInterface, PeekInterface, SwitchStrategy},
+    maskable::{Mask, Maskable},
+    secret::Secret,
+    strategy::{Strategy, WithType, WithoutType},
+    strong_secret::StrongSecret,
 };
-
-#[cfg(feature = "diesel")]
-mod diesel;
-
-#[cfg(feature = "cassandra")]
-mod cassandra;
-
-pub mod maskable;
-
-pub use maskable::*;
+#[cfg(feature = "serde")]
+pub use self::{
+    secret::JsonMaskStrategy,
+    serde::{Deserialize, ErasedMaskSerialize, SerializableSecret, Serialize, masked_serialize},
+};
