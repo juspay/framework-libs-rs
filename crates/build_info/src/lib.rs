@@ -130,7 +130,7 @@
 //! # }
 //! ```
 
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(test(attr(deny(warnings))))]
 
 #[cfg(feature = "cargo-workspace-build")]
