@@ -1,4 +1,4 @@
-#![allow(dead_code, clippy::panic_in_result_fn)]
+#![expect(missing_docs)]
 
 use masking::Secret;
 #[cfg(feature = "serde")]
@@ -41,7 +41,6 @@ fn basic() {
     };
 
     // clone
-    #[allow(clippy::redundant_clone)] // We are asserting that the cloned value is equal
     let composite2 = composite.clone();
     assert_eq!(composite, composite2);
 
@@ -130,7 +129,6 @@ fn for_string() {
     };
 
     // clone
-    #[allow(clippy::redundant_clone)] // We are asserting that the cloned value is equal
     let composite2 = composite.clone();
     assert_eq!(composite, composite2);
 

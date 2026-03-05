@@ -24,7 +24,7 @@
 /// // In your crate's build script (build.rs):
 /// build_info::generate_vergen_cargo_instructions();
 /// ```
-#[allow(clippy::expect_used)] // Panics are acceptable in build scripts
+#[expect(clippy::expect_used)] // Panics are acceptable in build scripts
 pub fn generate_vergen_cargo_instructions() {
     use vergen_gix::{BuildBuilder, CargoBuilder, Emitter, GixBuilder, RustcBuilder};
 

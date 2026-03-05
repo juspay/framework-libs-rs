@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 #[cfg(feature = "framework-libs-members-env")]
 mod cargo_workspace {
