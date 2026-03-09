@@ -82,14 +82,6 @@ impl<Secret: ZeroizableSecret, MaskingStrategy: Strategy<Secret>> fmt::Debug
     }
 }
 
-impl<Secret: ZeroizableSecret, MaskingStrategy: Strategy<Secret>> fmt::Display
-    for StrongSecret<Secret, MaskingStrategy>
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        MaskingStrategy::fmt(&self.inner_secret, f)
-    }
-}
-
 impl<Secret: ZeroizableSecret, MaskingStrategy> Default for StrongSecret<Secret, MaskingStrategy>
 where
     Secret: ZeroizableSecret + Default,
