@@ -5,7 +5,7 @@ use crate::{ExposeInterface, Secret};
 /// An Enum that allows us to optionally mask data, based on which enum variant that data is stored
 /// in.
 #[derive(Clone, Eq, PartialEq)]
-pub enum Maskable<T: Eq + PartialEq + Clone> {
+pub enum Maskable<T: Eq + Clone> {
     /// Variant which masks the data by wrapping in a Secret
     Masked(Secret<T>),
     /// Variant which doesn't mask the data
