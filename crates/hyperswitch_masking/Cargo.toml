@@ -25,7 +25,7 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
 bytes = { version = "1.11", optional = true }
-diesel = { version = "2.2", features = ["postgres", "serde_json", "time"], optional = true }
+diesel = { version = "2.2", features = ["serde_json", "time"], optional = true }
 erased-serde = "0.4"
 prost = { version = "0.14", optional = true }
 scylla = { version = "1.5", optional = true }
