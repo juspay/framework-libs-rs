@@ -1,7 +1,7 @@
 [package]
 name = "hyperswitch_masking"
 description = "Personally Identifiable Information protection through wrapper types and traits for secret management, ensuring they aren't accidentally copied, logged, or otherwise exposed (as much as possible). Also helps ensure secrets are securely wiped from memory when dropped."
-keywords = ["masking", "redaction", "pii", "privacy", "security", "hyperswitch"]
+keywords = ["masking", "redaction", "pii", "privacy", "security"]
 categories = ["finance", "security", "value-formatting"]
 version = "0.0.1"
 edition.workspace = true
