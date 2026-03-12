@@ -15,6 +15,7 @@ However, we aim to keep these libraries generic enough so that they remain usefu
 
 - [`log_utils`](crates/log_utils/): A configurable logging infrastructure built on the [`tracing`](https://github.com/tokio-rs/tracing) ecosystem.
 - [`build_info`](crates/build_info/): Utilities for extracting information about the build environment and Cargo workspace.
+- [`hyperswitch_masking`](crates/hyperswitch_masking/): Personally Identifiable Information (PII) protection through wrapper types and traits for secret management, ensuring sensitive data isn't accidentally exposed in logs or debug output.
 
 ## Roadmap
 
