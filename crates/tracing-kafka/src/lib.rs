@@ -7,7 +7,7 @@
 //!
 //! ## Using KafkaWriter directly
 //! ```no_run
-//! use kafka_writer::KafkaWriter;
+//! use tracing_kafka::KafkaWriter;
 //! use rdkafka::message::OwnedHeaders;
 //!
 //! let writer = KafkaWriter::new(
@@ -43,7 +43,7 @@
 //! ```no_run
 //! # #[cfg(feature = "layer")]
 //! # {
-//! use kafka_writer::KafkaLayer;
+//! use tracing_kafka::KafkaLayer;
 //! use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 //!
 //! let kafka_layer = KafkaLayer::builder()

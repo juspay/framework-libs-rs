@@ -1,8 +1,8 @@
 [package]
-name = "kafka-writer"
+name = "tracing-kafka"
 version = "0.1.0"
 edition = "2021"
-description = "A generic Kafka writer implementation with optional tracing layer support"
+description = "A tracing layer that sends logs to Kafka with optional event publishing support"
 
 [dependencies]
 tracing = "0.1"
