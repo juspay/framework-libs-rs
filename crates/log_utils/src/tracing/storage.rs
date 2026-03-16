@@ -131,7 +131,7 @@ impl Visit for Storage<'_> {
                 name if name.starts_with("log.") => (),
                 name if name.starts_with("r#") => {
                     self.record_value(
-                        #[allow(clippy::expect_used)]
+                        #[expect(clippy::expect_used)]
                         name.get(2..).expect(
                             "field name using raw identifiers must have at least two characters",
                         ),
@@ -150,7 +150,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
     for SpanStorageLayer
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(id)
             .expect("span with specified id does not exist in `on_new_span()`");
@@ -172,13 +172,13 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
     }
 
     fn on_record(&self, span_id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(span_id)
             .expect("span with specified id does not exist in `on_record()`");
         let mut extensions = span.extensions_mut();
 
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let visitor = extensions
             .get_mut::<Storage<'_>>()
             .expect("span does not have storage in `on_record()`");
@@ -187,7 +187,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
     }
 
     fn on_enter(&self, span_id: &Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(span_id)
             .expect("span with specified id does not exist in `on_enter()`");
@@ -200,7 +200,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(&id)
             .expect("span with specified id does not exist in `on_close()`");
@@ -228,7 +228,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
         }
 
         let mut extensions = span.extensions_mut();
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let visitor = extensions
             .get_mut::<Storage<'_>>()
             .expect("span does not have storage in `on_close()`");

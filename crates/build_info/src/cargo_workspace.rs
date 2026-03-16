@@ -14,7 +14,7 @@
 /// // In your crate's build script (build.rs):
 /// build_info::set_cargo_workspace_members_env();
 /// ```
-#[allow(clippy::expect_used)]
+#[expect(clippy::expect_used)]
 pub fn set_cargo_workspace_members_env() {
     use std::io::Write;
 
@@ -48,7 +48,7 @@ mod tests {
             metadata
                 .workspace_packages()
                 .iter()
-                .any(|package| package.name == env!("CARGO_PKG_NAME")),
+                .any(|package| package.name.to_string() == env!("CARGO_PKG_NAME")),
             "Current crate is not present in `cargo metadata` output"
         );
     }

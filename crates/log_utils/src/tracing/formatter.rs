@@ -384,7 +384,7 @@ where
 
     fn on_enter(&self, id: &Id, ctx: Context<'_, S>) {
         if self.log_span_lifecycles {
-            #[allow(clippy::expect_used)]
+            #[expect(clippy::expect_used)]
             let span = ctx
                 .span(id)
                 .expect("span with specified id does not exist in `on_enter()`");
@@ -396,7 +396,7 @@ where
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(&id)
             .expect("span with specified id does not exist in `on_close()`");

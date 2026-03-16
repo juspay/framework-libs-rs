@@ -170,7 +170,7 @@ impl AdditionalFieldsPlacement {
 /// Holds the constructed logging layers and their associated worker guards.
 /// These components can be combined with other layers and a [`tracing_subscriber::Registry`]
 /// before initializing the global subscriber.
-#[allow(missing_debug_implementations)] // File and console layers are `dyn Trait` objects
+#[expect(missing_debug_implementations)] // File and console layers are `dyn Trait` objects
 pub struct LoggingComponents {
     /// The layer responsible for storing span data.
     pub storage_layer: SpanStorageLayer,
@@ -337,14 +337,14 @@ pub fn build_logging_components(config: LoggerConfig) -> Result<LoggingComponent
             .unwrap_or_default(); // Using an empty string causes it to use the default directive
 
         match file_logging_config.print_filtering_directive {
-            #[allow(clippy::print_stdout)]
+            #[expect(clippy::print_stdout)]
             DirectivePrintTarget::Stdout => {
                 println!(
                     "[INFO] {}: Using file filtering directive: {file_filter_directive}",
                     env!("CARGO_PKG_NAME")
                 );
             }
-            #[allow(clippy::print_stderr)]
+            #[expect(clippy::print_stderr)]
             DirectivePrintTarget::Stderr => {
                 eprintln!(
                     "[INFO] {}: Using file filtering directive: {file_filter_directive}",
@@ -385,14 +385,14 @@ pub fn build_logging_components(config: LoggerConfig) -> Result<LoggingComponent
             .unwrap_or_default(); // Using an empty string causes it to use the default directive
 
         match console_logging_config.print_filtering_directive {
-            #[allow(clippy::print_stdout)]
+            #[expect(clippy::print_stdout)]
             DirectivePrintTarget::Stdout => {
                 println!(
                     "[INFO] {}: Using console filtering directive: {console_filter_directive}",
                     env!("CARGO_PKG_NAME")
                 );
             }
-            #[allow(clippy::print_stderr)]
+            #[expect(clippy::print_stderr)]
             DirectivePrintTarget::Stderr => {
                 eprintln!(
                     "[INFO] {}: Using console filtering directive: {console_filter_directive}",
