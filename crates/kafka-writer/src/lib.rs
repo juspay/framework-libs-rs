@@ -13,14 +13,19 @@
 //! let writer = KafkaWriter::new(
 //!     vec!["localhost:9092".to_string()],
 //!     "default-topic".to_string(),
-//!     None, None, None, None, None, None
-//! ).expect("Failed to create KafkaWriter");
+//!     None,
+//!     None,
+//!     None,
+//!     None,
+//!     None,
+//!     None,
+//! )
+//! .expect("Failed to create KafkaWriter");
 //!
-//! let headers = OwnedHeaders::new()
-//!     .insert(rdkafka::message::Header {
-//!         key: "my-header",
-//!         value: Some("my-value"),
-//!     });
+//! let headers = OwnedHeaders::new().insert(rdkafka::message::Header {
+//!     key: "my-header",
+//!     value: Some("my-value"),
+//! });
 //!
 //! let result = writer.publish_event(
 //!     "custom-events",
@@ -47,9 +52,7 @@
 //!     .build()
 //!     .expect("Failed to create Kafka layer");
 //!
-//! tracing_subscriber::registry()
-//!     .with(kafka_layer)
-//!     .init();
+//! tracing_subscriber::registry().with(kafka_layer).init();
 //! # }
 //! ```
 
@@ -60,10 +63,9 @@ mod writer;
 mod layer;
 
 pub use builder::KafkaWriterBuilder;
-pub use writer::{KafkaWriter, KafkaWriterError};
-
 #[cfg(feature = "layer")]
 pub use layer::{KafkaLayer, KafkaLayerBuilder, KafkaLayerError};
+pub use writer::{KafkaWriter, KafkaWriterError};
 
 #[cfg(feature = "kafka-metrics")]
 mod metrics;

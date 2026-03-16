@@ -6,10 +6,12 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "kafka-metrics")]
+use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::{
     ClientContext,
     config::ClientConfig,
-    error::{KafkaError, RDKafkaErrorCode},
+    error::KafkaError,
     message::OwnedHeaders,
     producer::{BaseRecord, DeliveryResult, Producer, ProducerContext, ThreadedProducer},
 };
@@ -31,6 +33,7 @@ impl ClientContext for MetricsProducerContext {}
 impl ProducerContext for MetricsProducerContext {
     type DeliveryOpaque = Box<KafkaMessageType>;
 
+    #[cfg_attr(not(feature = "kafka-metrics"), allow(unused_variables))]
     fn delivery(&self, delivery_result: &DeliveryResult<'_>, opaque: Self::DeliveryOpaque) {
         let message_type = *opaque;
         let is_success = delivery_result.is_ok();
@@ -244,6 +247,7 @@ impl Write for KafkaWriter {
                     .unwrap_or(0),
             );
 
+        #[cfg_attr(not(feature = "kafka-metrics"), allow(unused_variables))]
         if let Err((kafka_error, _)) = self.producer.send::<(), [u8]>(record) {
             #[cfg(feature = "kafka-metrics")]
             {
@@ -305,9 +309,9 @@ impl Drop for KafkaWriter {
 
 #[cfg(test)]
 mod tests {
+    use std::{io::Write, time::Duration};
+
     use super::*;
-    use std::io::Write;
-    use std::time::Duration;
 
     fn create_test_writer_direct() -> Result<KafkaWriter, KafkaWriterError> {
         KafkaWriter::new(
