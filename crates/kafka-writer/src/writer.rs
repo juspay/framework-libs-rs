@@ -365,13 +365,12 @@ mod tests {
         let brokers = vec!["localhost:9092".to_string()];
         let topic = "test-topic".to_string();
 
-        match KafkaWriter::new(brokers, topic.clone(), None, None, None, None, None, None) {
-            Ok(writer) => {
-                let debug_output = format!("{writer:?}");
-                assert!(debug_output.contains("KafkaWriter"));
-                assert!(debug_output.contains(&topic));
-            }
-            Err(_) => {}
+        if let Ok(writer) =
+            KafkaWriter::new(brokers, topic.clone(), None, None, None, None, None, None)
+        {
+            let debug_output = format!("{writer:?}");
+            assert!(debug_output.contains("KafkaWriter"));
+            assert!(debug_output.contains(&topic));
         }
     }
 
@@ -379,52 +378,30 @@ mod tests {
     fn test_make_writer_trait() {
         use tracing_subscriber::fmt::MakeWriter;
 
-        match create_test_writer_builder() {
-            Ok(writer) => {
-                let new_writer: KafkaWriter = writer.make_writer();
-                assert_eq!(format!("{writer:?}"), format!("{new_writer:?}"));
-            }
-            Err(_) => {}
+        if let Ok(writer) = create_test_writer_builder() {
+            let new_writer: KafkaWriter = writer.make_writer();
+            assert_eq!(format!("{writer:?}"), format!("{new_writer:?}"));
         }
     }
 
     #[test]
     fn test_write_trait_implementation() {
-        match create_test_writer_builder() {
-            Ok(mut writer) => {
-                let test_data = b"test log message";
+        if let Ok(mut writer) = create_test_writer_builder() {
+            let test_data = b"test log message";
 
-                let result = writer.write(test_data);
-                assert!(result.is_ok());
-                assert_eq!(result.unwrap(), test_data.len());
+            let result = writer.write(test_data);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), test_data.len());
 
-                let flush_result = writer.flush();
-                match flush_result {
-                    Ok(_) => {}
-                    Err(_) => {}
-                }
-            }
-            Err(_) => {}
+            let _ = writer.flush();
         }
     }
 
     #[test]
     fn test_publish_event_method() {
-        match create_test_writer_builder() {
-            Ok(writer) => {
-                let result = writer.publish_event(
-                    "test-events",
-                    Some("test-key"),
-                    b"test event payload",
-                    None,
-                );
-
-                match result {
-                    Ok(_) => {}
-                    Err(_) => {}
-                }
-            }
-            Err(_) => {}
+        if let Ok(writer) = create_test_writer_builder() {
+            let _ =
+                writer.publish_event("test-events", Some("test-key"), b"test event payload", None);
         }
     }
 
