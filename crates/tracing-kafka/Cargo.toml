@@ -1,0 +1,23 @@
+[package]
+name = "tracing-kafka"
+version = "0.1.0"
+edition = "2021"
+description = "A tracing layer that sends logs to Kafka with optional event publishing support"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.3"
+rdkafka = "0.36"
+serde_json = "1.0"
+thiserror = "1.0"
+
+# Optional dependencies for metrics
+prometheus = { version = "0.13", optional = true }
+
+# Optional dependencies for layer feature
+log_utils = { path = "../log_utils", features = ["tracing"], optional = true }
+
+[features]
+default = ["kafka-metrics"]
+kafka-metrics = ["dep:prometheus"]
+layer = ["dep:log_utils"]
