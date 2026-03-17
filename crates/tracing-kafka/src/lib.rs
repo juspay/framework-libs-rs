@@ -7,8 +7,8 @@
 //!
 //! ## Using KafkaWriter directly
 //! ```no_run
-//! use tracing_kafka::KafkaWriter;
 //! use rdkafka::message::OwnedHeaders;
+//! use tracing_kafka::KafkaWriter;
 //!
 //! let writer = KafkaWriter::new(
 //!     vec!["localhost:9092".to_string()],
