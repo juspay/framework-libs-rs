@@ -186,6 +186,8 @@ macro_rules! cargo_workspace_members {
 /// Obtain the crates in the [`framework-libs-rs`][framework-libs-rs-github] repository's
 /// cargo workspace as a `HashSet`.
 ///
+/// This excludes example crates and other packages with `publish = false`.
+///
 /// This may be useful for enabling logs from crates in the `framework-libs-rs` repository's
 /// workspace, for example.
 ///
@@ -193,5 +195,78 @@ macro_rules! cargo_workspace_members {
 #[cfg(feature = "framework-libs-members-env")]
 #[inline]
 pub fn framework_libs_workspace_members() -> std::collections::HashSet<&'static str> {
-    crate::cargo_workspace_members!()
+    std::env!("FRAMEWORK_LIBS_WORKSPACE_MEMBERS")
+        .split(',')
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "framework-libs-members-env")]
+    #[test]
+    fn test_framework_libs_workspace_members_excludes_examples() {
+        let metadata = cargo_metadata::MetadataCommand::new()
+            .exec()
+            .expect("Failed to obtain cargo metadata");
+
+        let examples: Vec<_> = metadata
+            .workspace_packages()
+            .iter()
+            .filter(|p| p.manifest_path.as_str().contains("/examples/"))
+            .map(|p| p.name.as_str())
+            .collect();
+
+        let members = crate::framework_libs_workspace_members();
+        for example in examples {
+            assert!(
+                !members.contains(example),
+                "Example crate '{example}' should be excluded"
+            );
+        }
+    }
+
+    #[cfg(feature = "framework-libs-members-env")]
+    #[test]
+    fn test_framework_libs_workspace_members_includes_publishable_crates() {
+        let metadata = cargo_metadata::MetadataCommand::new()
+            .exec()
+            .expect("Failed to obtain cargo metadata");
+
+        let publishable: Vec<_> = metadata
+            .workspace_packages()
+            .iter()
+            .filter(|p| !p.manifest_path.as_str().contains("/examples/"))
+            .map(|p| p.name.as_str())
+            .collect();
+
+        let members = crate::framework_libs_workspace_members();
+        for crate_name in publishable {
+            assert!(
+                members.contains(crate_name),
+                "Publishable crate '{crate_name}' should be included"
+            );
+        }
+    }
+
+    #[cfg(feature = "framework-libs-members-env")]
+    #[test]
+    fn test_examples_have_publish_false() {
+        let metadata = cargo_metadata::MetadataCommand::new()
+            .exec()
+            .expect("Failed to obtain cargo metadata");
+
+        let examples_without_publish_false: Vec<_> = metadata
+            .workspace_packages()
+            .iter()
+            .filter(|p| p.manifest_path.as_str().contains("/examples/"))
+            .filter(|p| p.publish.as_ref().map(|v| !v.is_empty()).unwrap_or(true))
+            .map(|p| p.name.as_str())
+            .collect();
+
+        assert!(
+            examples_without_publish_false.is_empty(),
+            "Example packages must have `publish = false` set. \
+             Violating packages: {examples_without_publish_false:?}"
+        );
+    }
 }
