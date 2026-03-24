@@ -247,4 +247,26 @@ mod tests {
             );
         }
     }
+
+    #[cfg(feature = "framework-libs-members-env")]
+    #[test]
+    fn test_examples_have_publish_false() {
+        let metadata = cargo_metadata::MetadataCommand::new()
+            .exec()
+            .expect("Failed to obtain cargo metadata");
+
+        let examples_without_publish_false: Vec<_> = metadata
+            .workspace_packages()
+            .iter()
+            .filter(|p| p.manifest_path.as_str().contains("/examples/"))
+            .filter(|p| p.publish.as_ref().map(|v| !v.is_empty()).unwrap_or(true))
+            .map(|p| p.name.as_str())
+            .collect();
+
+        assert!(
+            examples_without_publish_false.is_empty(),
+            "Example packages must have `publish = false` set. \
+             Violating packages: {examples_without_publish_false:?}"
+        );
+    }
 }
