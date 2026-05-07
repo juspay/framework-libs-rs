@@ -26,43 +26,35 @@
 /// ```
 #[expect(clippy::expect_used)] // Panics are acceptable in build scripts
 pub fn generate_vergen_cargo_instructions() {
-    use vergen_gix::{BuildBuilder, CargoBuilder, Emitter, GixBuilder, RustcBuilder};
+    use vergen_gix::{Build, Cargo, Emitter, Gix, Rustc};
 
     // Update the `vergen_macros` module if enabling new instructions,
     // along with the `vergen_integration` example.
 
     Emitter::default()
         .add_instructions(
-            &BuildBuilder::default()
+            &Build::builder()
                 .build_date(true)
                 .build_timestamp(true)
-                .build()
-                .expect("Failed to generate build related build instructions"),
+                .build(),
         )
         .expect("Failed to generate `cargo` related build instructions")
-        .add_instructions(
-            &CargoBuilder::default()
-                .target_triple(true)
-                .build()
-                .expect("Failed to generate `cargo` related build instructions"),
-        )
+        .add_instructions(&Cargo::builder().target_triple(true).build())
         .expect("Failed to generate `cargo` related build instructions")
         .add_instructions(
-            &RustcBuilder::default()
+            &Rustc::builder()
                 .semver(true)
                 .commit_hash(true)
                 .commit_date(true)
-                .build()
-                .expect("Failed to generate `rustc` related build instructions"),
+                .build(),
         )
         .expect("Failed to generate `rustc` related build instructions")
         .add_instructions(
-            &GixBuilder::default()
+            &Gix::builder()
                 .commit_timestamp(true)
                 .describe(true, true, None)
                 .sha(true)
-                .build()
-                .expect("Failed to generate `git` related build instructions"),
+                .build(),
         )
         .expect("Failed to generate `git` related build instructions")
         .emit()
