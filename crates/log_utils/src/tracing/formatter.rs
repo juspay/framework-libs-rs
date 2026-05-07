@@ -244,12 +244,11 @@ where
         }
 
         // Serialize the collected fields_to_nest if nesting is enabled and if map is not empty
-        if let AdditionalFieldsPlacement::Nested(field_name) = &self.additional_fields_placement {
-            if let Some(map) = fields_to_nest {
-                if !map.is_empty() {
-                    map_serializer.serialize_entry(field_name.as_str(), &map)?;
-                }
-            }
+        if let AdditionalFieldsPlacement::Nested(field_name) = &self.additional_fields_placement
+            && let Some(map) = fields_to_nest
+            && !map.is_empty()
+        {
+            map_serializer.serialize_entry(field_name.as_str(), &map)?;
         }
 
         Ok(())
@@ -407,10 +406,9 @@ where
             span.parent().is_none() // Only log root span exits otherwise
         };
 
-        if should_log_exit {
-            if let Ok(serialized) = self.span_serialize(&span, RecordType::ExitSpan) {
-                let _ = self.flush(serialized);
-            }
+        if should_log_exit && let Ok(serialized) = self.span_serialize(&span, RecordType::ExitSpan)
+        {
+            let _ = self.flush(serialized);
         }
     }
 }
