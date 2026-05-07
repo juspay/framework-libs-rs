@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*", "examples/*"]
-package.edition = "2021"
+package.edition = "2024"
 package.rust-version = "1.92.0"
 package.license = "Apache-2.0"
 package.repository = "https://github.com/juspay/framework-libs-rs"
