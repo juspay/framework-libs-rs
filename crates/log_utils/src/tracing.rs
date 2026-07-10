@@ -30,13 +30,26 @@ mod keys {
     pub(crate) const TIME: &str = "time";
     pub(crate) const HOSTNAME: &str = "hostname";
     pub(crate) const PID: &str = "pid";
+    pub(crate) const THREAD_ID: &str = "thread_id";
+    pub(crate) const THREAD_NAME: &str = "thread_name";
     pub(crate) const FN: &str = "fn";
     pub(crate) const FULL_NAME: &str = "full_name";
     pub(crate) const ELAPSED_MILLISECONDS: &str = "elapsed_milliseconds";
 
     pub(crate) static IMPLICIT_KEYS: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
         [
-            MESSAGE, LEVEL, TARGET, LINE, FILE, TIME, HOSTNAME, PID, FN, FULL_NAME,
+            MESSAGE,
+            LEVEL,
+            TARGET,
+            LINE,
+            FILE,
+            TIME,
+            HOSTNAME,
+            PID,
+            THREAD_ID,
+            THREAD_NAME,
+            FN,
+            FULL_NAME,
         ]
         .iter()
         .copied()
@@ -545,6 +558,8 @@ mod tests {
         assert!(log_entry["time"].is_string());
         assert!(log_entry["hostname"].is_string());
         assert!(log_entry["pid"].is_number());
+        assert!(log_entry["thread_id"].is_string());
+        assert!(log_entry["thread_name"].is_string());
     }
 
     #[test]
@@ -972,6 +987,8 @@ mod tests {
         assert!(log_entry["message"].is_string());
         assert!(log_entry["level"].is_string());
         assert!(log_entry["time"].is_string());
+        assert!(log_entry["thread_id"].is_string());
+        assert!(log_entry["thread_name"].is_string());
 
         // Clean up
         let _ = fs::remove_dir_all(&temp_dir);
