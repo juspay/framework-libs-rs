@@ -87,6 +87,8 @@ Then a sample log output could look like (without the formatting):
   "message": "Processing user request",
   "hostname": "my-server",
   "pid": 12345,
+  "thread_id": "ThreadId(5)",
+  "thread_name": "worker-1",
   "level": "INFO",
   "target": "my_app::handlers",
   "line": 42,

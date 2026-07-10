@@ -74,8 +74,8 @@ impl fmt::Display for RecordType {
 ///
 /// This layer is responsible for serializing log records according to the provided
 /// [`JsonFormattingLayerConfig`].
-/// It includes standard logging metadata (like timestamp, level, target, PID, hostname)
-/// and integrates fields from `static_top_level_fields`, `top_level_keys`,
+/// It includes standard logging metadata (like timestamp, level, target, thread ID, thread name,
+/// PID, hostname) and integrates fields from `static_top_level_fields`, `top_level_keys`,
 /// and other event/span data based on the configuration.
 ///
 /// It requires a [`MakeWriter`] to determine the output destination and a
@@ -146,6 +146,13 @@ where
         map_serializer.serialize_entry(keys::MESSAGE, message)?;
         map_serializer.serialize_entry(keys::HOSTNAME, &self.hostname)?;
         map_serializer.serialize_entry(keys::PID, &self.pid)?;
+        map_serializer.serialize_entry(
+            keys::THREAD_ID,
+            &format_args!("{:?}", std::thread::current().id()),
+        )?;
+        if let Some(name) = std::thread::current().name() {
+            map_serializer.serialize_entry(keys::THREAD_NAME, name)?;
+        }
         map_serializer.serialize_entry(keys::LEVEL, &format_args!("{}", metadata.level()))?;
         map_serializer.serialize_entry(keys::TARGET, metadata.target())?;
         map_serializer.serialize_entry(keys::LINE, &metadata.line())?;
