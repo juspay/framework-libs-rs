@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
@@ -62,7 +62,7 @@ jobs:
           toolchain: stable 2 weeks ago
           components: clippy
 
-      - uses: Swatinem/rust-cache@v2.7.8
+      - uses: Swatinem/rust-cache@v2.9.1
 
       - name: Install just
         uses: taiki-e/install-action@v2
@@ -103,7 +103,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Obtain MSRV from Cargo.toml
         shell: bash
@@ -116,7 +116,7 @@ jobs:
         with:
           toolchain: "${{ env.rust_version }}"
 
-      - uses: Swatinem/rust-cache@v2.7.8
+      - uses: Swatinem/rust-cache@v2.9.1
 
       - name: Install just
         uses: taiki-e/install-action@v2
@@ -143,14 +143,14 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
 
-      - uses: Swatinem/rust-cache@v2.7.8
+      - uses: Swatinem/rust-cache@v2.9.1
 
       - name: Install just
         uses: taiki-e/install-action@v2
@@ -168,7 +168,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust (stable toolchain)
         uses: dtolnay/rust-toolchain@master
@@ -183,7 +183,7 @@ jobs:
           toolchain: nightly
           components: llvm-tools-preview
 
-      - uses: Swatinem/rust-cache@v2.7.8
+      - uses: Swatinem/rust-cache@v2.9.1
 
       - name: Install just
         uses: taiki-e/install-action@v2
@@ -208,7 +208,7 @@ jobs:
         run: just coverage ci
 
       - name: Upload coverage data to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
@@ -219,7 +219,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Spell check
         uses: crate-ci/typos@master
