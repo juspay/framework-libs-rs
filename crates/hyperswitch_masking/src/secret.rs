@@ -391,7 +391,7 @@ mod tests {
         let expected_tag1_mask = if tag1.chars().count() <= 2 {
             "\"**\"".to_string()
         } else if tag1.chars().count() <= 6 {
-            format!("\"{}**\"", &tag1.chars().next().unwrap())
+            format!("\"{}**\"", tag1.chars().next().unwrap())
         } else {
             format!(
                 "\"{}**{}**{}\"",
