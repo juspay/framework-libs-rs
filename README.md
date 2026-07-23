@@ -15,6 +15,7 @@ However, we aim to keep these libraries generic enough so that they remain usefu
 
 - [`log_utils`](crates/log_utils/): A configurable logging infrastructure built on the [`tracing`](https://github.com/tokio-rs/tracing) ecosystem.
 - [`build_info`](crates/build_info/): Utilities for extracting information about the build environment and Cargo workspace.
+- [`metrics_utils`](crates/metrics_utils/): Utilities for configuring and managing [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-rust) metrics pipelines with OTLP and Prometheus export.
 - [`hyperswitch_masking`](crates/hyperswitch_masking/): Personally Identifiable Information (PII) protection through wrapper types and traits for secret management, ensuring sensitive data isn't accidentally exposed in logs or debug output.
 
 ## Roadmap
@@ -24,9 +25,9 @@ We plan to expand this collection with additional utilities commonly needed in p
 - [ ] `log_utils`:
   - [x] Add support for the [`tracing`](https://github.com/tokio-rs/tracing) ecosystem
   - [ ] Add support for the [`fastrace`](https://github.com/fast/fastrace) ecosystem
-- [ ] Metrics support:
-  - [ ] Support for pushing metrics in OpenTelemetry format with the `opentelemetry` ecosystem
-  - [ ] Support for exposing metrics in Prometheus format
+- [x] Metrics support:
+  - [x] Support for exporting metrics over OTLP
+  - [x] Support for Prometheus pull-based metrics export
 - [ ] HTTP client utilities
   - [ ] Optionally, include metrics support
 - [ ] HTTP server utilities
