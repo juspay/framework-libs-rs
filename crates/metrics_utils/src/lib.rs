@@ -39,7 +39,7 @@
 //! # #[tokio::main(flavor = "current_thread")]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use metrics_utils::{
-//!     MetricsConfig, OtlpConfig, counter_metric, global_meter, histogram_metric_f64,
+//!     MetricsConfig, OtlpConfig, Temporality, counter_metric, global_meter, histogram_metric_f64,
 //!     init_metrics, metric_attributes,
 //! };
 //!
@@ -57,6 +57,7 @@
 //!         metrics_export_interval: Some(std::time::Duration::from_secs(10)),
 //!         # #[cfg(any(feature = "opentelemetry-otlp-gzip", feature = "opentelemetry-otlp-zstd"))]
 //!         compression: None,
+//!         temporality: Some(Temporality::Cumulative),
 //!     }),
 //!     # #[cfg(feature = "opentelemetry-prometheus")]
 //!     enable_prometheus: false,
@@ -125,10 +126,10 @@ pub use prometheus;
     )
 ))]
 pub use self::opentelemetry::OtlpCompression;
-#[cfg(feature = "opentelemetry-otlp")]
-pub use self::opentelemetry::OtlpConfig;
 #[cfg(feature = "opentelemetry")]
 pub use self::opentelemetry::{MetricsConfig, MetricsError};
 #[cfg(any(feature = "opentelemetry-otlp", feature = "opentelemetry-prometheus"))]
 pub use self::opentelemetry::{MetricsHandle, init_metrics};
+#[cfg(feature = "opentelemetry-otlp")]
+pub use self::opentelemetry::{OtlpConfig, Temporality};
 pub use self::utils::f64_histogram_buckets;
