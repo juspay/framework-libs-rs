@@ -10,6 +10,8 @@ pub use ::opentelemetry::{
     KeyValue, Value, global,
     metrics::{Counter, Gauge, Histogram, Meter, UpDownCounter},
 };
+#[cfg(feature = "opentelemetry-otlp")]
+pub use opentelemetry_sdk::metrics::Temporality;
 
 /// Configuration for the metrics system.
 #[derive(Debug, Clone)]
@@ -62,6 +64,12 @@ pub struct OtlpConfig {
         feature = "opentelemetry-otlp-zstd"
     ))]
     pub compression: Option<OtlpCompression>,
+
+    /// Aggregation temporality for the OTLP metric exporter.
+    ///
+    /// If not specified, the [`MetricExporter`][opentelemetry_otlp::MetricExporter]'s default
+    /// temporality is used.
+    pub temporality: Option<Temporality>,
 }
 
 /// Compression algorithm for the OTLP gRPC exporter.
@@ -176,7 +184,7 @@ impl MetricsConfig {
 /// ```
 /// use std::time::Duration;
 ///
-/// use metrics_utils::{MetricsConfig, OtlpConfig, init_metrics};
+/// use metrics_utils::{MetricsConfig, OtlpConfig, Temporality, init_metrics};
 ///
 /// # #[tokio::main(flavor = "current_thread")]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -194,6 +202,7 @@ impl MetricsConfig {
 ///         metrics_export_interval: Some(Duration::from_secs(10)),
 ///         # #[cfg(any(feature = "opentelemetry-otlp-gzip", feature = "opentelemetry-otlp-zstd"))]
 ///         compression: None,
+///         temporality: Some(Temporality::Cumulative),
 ///     }),
 ///     # #[cfg(feature = "opentelemetry-prometheus")]
 ///     enable_prometheus: true,
@@ -298,6 +307,10 @@ fn build_otlp_reader(
 
     if let Some(timeout) = config.endpoint_timeout {
         exporter_builder = exporter_builder.with_timeout(timeout);
+    }
+
+    if let Some(temporality) = config.temporality {
+        exporter_builder = exporter_builder.with_temporality(temporality);
     }
 
     let exporter = exporter_builder
@@ -469,7 +482,7 @@ pub enum MetricsError {
 mod tests {
     use std::time::Duration;
 
-    use super::{MetricsConfig, MetricsError, OtlpConfig, init_metrics};
+    use super::{MetricsConfig, MetricsError, OtlpConfig, Temporality, init_metrics};
 
     #[test]
     fn test_config_validation() {
@@ -486,6 +499,7 @@ mod tests {
                     feature = "opentelemetry-otlp-zstd"
                 ))]
                 compression: None,
+                temporality: Some(Temporality::Cumulative),
             }),
             enable_prometheus: false,
         };
@@ -504,6 +518,7 @@ mod tests {
                     feature = "opentelemetry-otlp-zstd"
                 ))]
                 compression: None,
+                temporality: Some(Temporality::Cumulative),
             }),
             enable_prometheus: true,
         };
@@ -534,6 +549,7 @@ mod tests {
                     feature = "opentelemetry-otlp-zstd"
                 ))]
                 compression: None,
+                temporality: Some(Temporality::Cumulative),
             }),
             enable_prometheus: false,
         };
@@ -555,6 +571,7 @@ mod tests {
                     feature = "opentelemetry-otlp-zstd"
                 ))]
                 compression: None,
+                temporality: Some(Temporality::Cumulative),
             }),
             enable_prometheus: false,
         };
@@ -576,6 +593,7 @@ mod tests {
                     feature = "opentelemetry-otlp-zstd"
                 ))]
                 compression: None,
+                temporality: Some(Temporality::Cumulative),
             }),
             enable_prometheus: false,
         };
