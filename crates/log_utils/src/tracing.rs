@@ -17,6 +17,8 @@ pub use self::{
     storage::SpanStorageLayer,
 };
 
+pub use self::storage::record_json;
+
 mod keys {
     use std::sync::LazyLock;
 
@@ -602,6 +604,68 @@ mod tests {
 
         // Verify other fields are also present at top level (default placement)
         assert_eq!(log_entry["other_field"], "value");
+    }
+
+    #[test]
+    fn test_record_json_records_structured_json() {
+        let test_writer = TestWriter::new();
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::new(),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+        };
+
+        let storage_layer = SpanStorageLayer::new(HashSet::new());
+        let formatting_layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry()
+            .with(storage_layer)
+            .with(formatting_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = span!(
+                TracingLevel::INFO,
+                "connector_api_call",
+                api_message = tracing::field::Empty
+            );
+            let _guard = span.enter();
+
+            record_json(
+                "api_message",
+                json!({
+                    "request": {
+                        "method": "POST",
+                        "headers": {
+                            "content-type": "application/json"
+                        }
+                    },
+                    "response": {
+                        "status_code": 200
+                    }
+                }),
+            );
+
+            info!("Connector API call");
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        assert!(log_entry["api_message"].is_object());
+        assert_eq!(log_entry["api_message"]["request"]["method"], "POST");
+        assert_eq!(
+            log_entry["api_message"]["request"]["headers"]["content-type"],
+            "application/json"
+        );
+        assert_eq!(log_entry["api_message"]["response"]["status_code"], 200);
     }
 
     #[test]

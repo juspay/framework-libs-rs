@@ -108,5 +108,5 @@ pub use self::tracing::{
     AdditionalFieldsPlacement, ConsoleLogFormat, ConsoleLoggingConfig, DirectivePrintTarget,
     FileLoggingConfig, JsonFormattingLayer, JsonFormattingLayerConfig, Level, LoggerConfig,
     LoggerError, LoggingComponents, RecordType, Rotation, SpanStorageLayer,
-    build_logging_components,
+    build_logging_components, record_json,
 };
