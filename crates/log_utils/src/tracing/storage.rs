@@ -12,7 +12,28 @@ use tracing::{
     field::{Field, Visit},
     span::{Attributes, Record},
 };
-use tracing_subscriber::{Layer, layer::Context};
+use tracing_subscriber::{Layer, Registry, layer::Context, registry::LookupSpan};
+
+/// Records a JSON value on the current tracing span.
+///
+/// This is a stable extension point for structured JSON fields when the active subscriber uses
+/// [`SpanStorageLayer`].
+pub fn record_json(field: &'static str, value: serde_json::Value) {
+    let _ = tracing::Span::current().with_subscriber(|(id, dispatch)| {
+        let Some(registry) = dispatch.downcast_ref::<Registry>() else {
+            return;
+        };
+        let Some(span) = registry.span(id) else {
+            return;
+        };
+        let mut extensions = span.extensions_mut();
+        let Some(storage) = extensions.get_mut::<Storage<'_>>() else {
+            return;
+        };
+
+        storage.record_value(field, value);
+    });
+}
 
 /// A [`tracing_subscriber::Layer`] that enables storing key-value data within span extensions.
 /// It also handles propagation of "persistent" keys to parent spans and records span duration.
@@ -146,9 +167,7 @@ impl Visit for Storage<'_> {
     }
 }
 
-impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer<S>
-    for SpanStorageLayer
-{
+impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for SpanStorageLayer {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
         #[expect(clippy::expect_used)]
         let span = ctx

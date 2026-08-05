@@ -71,6 +71,7 @@
 //!         print_filtering_directive: DirectivePrintTarget::Stdout,
 //!     }),
 //!     global_filtering_directive: Some("info".to_string()),
+//!     field_rename_map: HashMap::new(),
 //! };
 //!
 //! match build_logging_components(config) {
@@ -108,5 +109,5 @@ pub use self::tracing::{
     AdditionalFieldsPlacement, ConsoleLogFormat, ConsoleLoggingConfig, DirectivePrintTarget,
     FileLoggingConfig, JsonFormattingLayer, JsonFormattingLayerConfig, Level, LoggerConfig,
     LoggerError, LoggingComponents, RecordType, Rotation, SpanStorageLayer,
-    build_logging_components,
+    build_logging_components, record_json,
 };
