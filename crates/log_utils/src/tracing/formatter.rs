@@ -28,6 +28,7 @@ use super::{AdditionalFieldsPlacement, LoggerError, storage::Storage};
 /// - Keys from event or span data that should be promoted to the top level.
 /// - Behavior for logging span lifecycles (entries and exits).
 /// - Placement of additional (non-top-level) fields.
+/// - A field rename map for remapping field names at serialization time.
 #[derive(Clone, Debug)]
 pub struct JsonFormattingLayerConfig {
     /// A map of key-value pairs that are statically defined at initialization and included at the
@@ -44,6 +45,18 @@ pub struct JsonFormattingLayerConfig {
 
     /// Specifies how additional fields (not designated as top-level) are placed in the JSON output.
     pub additional_fields_placement: AdditionalFieldsPlacement,
+
+    /// An optional map of field name renames applied at serialization time.
+    ///
+    /// Keys are the original field names (as declared in `#[instrument(fields(...))]` or span/event
+    /// data), and values are the desired output names in the JSON log.
+    ///
+    /// For example, `{"request_body" => "message.req_body"}` causes any field named `request_body`
+    /// to be emitted as `message.req_body` in the JSON output.
+    ///
+    /// Only non-implicit fields are eligible for renaming; implicit keys (like `message`, `level`,
+    /// `time`, etc.) cannot be renamed.
+    pub field_rename_map: HashMap<String, String>,
 }
 
 /// Describes the type of a tracing record.
@@ -95,6 +108,7 @@ where
     top_level_keys: Arc<HashSet<&'static str>>,
     log_span_lifecycles: bool,
     additional_fields_placement: AdditionalFieldsPlacement,
+    field_rename_map: HashMap<String, String>,
 }
 
 impl<W, F> JsonFormattingLayer<W, F>
@@ -130,6 +144,7 @@ where
             top_level_keys: Arc::new(config.top_level_keys),
             log_span_lifecycles: config.log_span_lifecycles,
             additional_fields_placement: config.additional_fields_placement,
+            field_rename_map: config.field_rename_map,
         })
     }
 
@@ -170,6 +185,14 @@ where
         Ok(())
     }
 
+    /// Returns the renamed output key if a mapping exists, otherwise returns the original key.
+    fn resolve_field_name<'k>(&'k self, key: &'k str) -> &'k str {
+        self.field_rename_map
+            .get(key)
+            .map(String::as_str)
+            .unwrap_or(key)
+    }
+
     /// Common serialization implementation used to serialize both event and span fields.
     fn common_serialize<S>(
         &self,
@@ -202,21 +225,22 @@ where
         if let Some(storage) = storage {
             // Serialize event fields
             for (key, value) in storage.values() {
+                let output_key = self.resolve_field_name(key);
                 if super::keys::IMPLICIT_KEYS.contains(*key) {
                     tracing::warn!(
                         "Attempting to log a reserved key `{key}` (value: `{value:?}`) via event. \
                          Skipping."
                     );
                 } else if self.top_level_keys.contains(*key) {
-                    map_serializer.serialize_entry(key, value)?;
+                    map_serializer.serialize_entry(output_key, value)?;
                     explicit_entries_set.insert(*key);
                 } else {
                     if self.additional_fields_placement.is_nested() {
                         if let Some(map) = fields_to_nest.as_mut() {
-                            map.insert(key.to_string(), value.clone());
+                            map.insert(output_key.to_string(), value.clone());
                         }
                     } else {
-                        map_serializer.serialize_entry(key, value)?;
+                        map_serializer.serialize_entry(output_key, value)?;
                     }
                     explicit_entries_set.insert(key);
                 }
@@ -232,19 +256,20 @@ where
                     .iter()
                     .filter(|(k, _v)| !explicit_entries_set.contains(*k))
                 {
+                    let output_key = self.resolve_field_name(key);
                     if super::keys::IMPLICIT_KEYS.contains(*key) {
                         tracing::warn!(
                             "Attempting to log a reserved key `{key}` (value: `{value:?}`) via span. \
                              Skipping."
                         );
                     } else if self.top_level_keys.contains(*key) {
-                        map_serializer.serialize_entry(key, value)?;
+                        map_serializer.serialize_entry(output_key, value)?;
                     } else if self.additional_fields_placement.is_nested() {
                         if let Some(map) = fields_to_nest.as_mut() {
-                            map.insert(key.to_string(), value.clone());
+                            map.insert(output_key.to_string(), value.clone());
                         }
                     } else {
-                        map_serializer.serialize_entry(key, value)?;
+                        map_serializer.serialize_entry(output_key, value)?;
                     }
                 }
             }

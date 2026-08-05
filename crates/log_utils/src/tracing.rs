@@ -95,6 +95,13 @@ pub struct LoggerConfig {
     /// This allows using a less verbose log level for third-party crates,
     /// while using a more verbose level for first-party crates, for example.
     pub global_filtering_directive: Option<String>,
+
+    /// An optional map of field name renames applied at serialization time.
+    ///
+    /// Keys are the original field names (as declared in spans/events), and values are the
+    /// desired output names in the JSON log. For example, `{"request_body" => "message.req_body"}`
+    /// causes any field named `request_body` to appear as `message.req_body` in the output.
+    pub field_rename_map: HashMap<String, String>,
 }
 
 /// Configuration for file logging.
@@ -287,6 +294,7 @@ pub enum LoggerError {
 ///         print_filtering_directive: DirectivePrintTarget::Stdout,
 ///     }),
 ///     global_filtering_directive: Some("info".to_string()),
+///     field_rename_map: HashMap::new(),
 /// };
 ///
 /// match build_logging_components(config) {
@@ -327,6 +335,7 @@ pub fn build_logging_components(config: LoggerConfig) -> Result<LoggingComponent
         top_level_keys: config.top_level_keys,
         log_span_lifecycles: config.log_span_lifecycles,
         additional_fields_placement: config.additional_fields_placement,
+        field_rename_map: config.field_rename_map,
     };
 
     // File logging
@@ -528,6 +537,7 @@ mod tests {
             top_level_keys: HashSet::new(),
             log_span_lifecycles: false,
             additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: HashMap::new(),
         };
 
         let layer = JsonFormattingLayer::new(
@@ -574,6 +584,7 @@ mod tests {
             top_level_keys,
             log_span_lifecycles: false,
             additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: HashMap::new(),
         };
 
         let layer = JsonFormattingLayer::new(
@@ -615,6 +626,7 @@ mod tests {
             top_level_keys: HashSet::new(),
             log_span_lifecycles: false,
             additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: HashMap::new(),
         };
 
         let storage_layer = SpanStorageLayer::new(HashSet::new());
@@ -677,6 +689,7 @@ mod tests {
             top_level_keys: HashSet::from(["user_id"]),
             log_span_lifecycles: false,
             additional_fields_placement: AdditionalFieldsPlacement::Nested("extra".to_string()),
+            field_rename_map: HashMap::new(),
         };
 
         let layer = JsonFormattingLayer::new(
@@ -722,6 +735,7 @@ mod tests {
             top_level_keys: HashSet::from(["user_id", "session_id", "operation"]),
             log_span_lifecycles: false,
             additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: HashMap::new(),
         };
 
         let formatting_layer = JsonFormattingLayer::new(
@@ -772,6 +786,7 @@ mod tests {
             top_level_keys: HashSet::new(),
             log_span_lifecycles: true, // Enable span lifecycle logging
             additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: HashMap::new(),
         };
 
         let formatting_layer = JsonFormattingLayer::new(
@@ -833,6 +848,7 @@ mod tests {
             top_level_keys: HashSet::new(),
             log_span_lifecycles: false,
             additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: HashMap::new(),
         };
 
         let result =
@@ -863,6 +879,7 @@ mod tests {
                 print_filtering_directive: DirectivePrintTarget::None,
             }),
             global_filtering_directive: None,
+            field_rename_map: HashMap::new(),
         };
 
         let result = build_logging_components(config);
@@ -901,6 +918,7 @@ mod tests {
                 print_filtering_directive: DirectivePrintTarget::None,
             }),
             global_filtering_directive: Some("warn".to_string()),
+            field_rename_map: HashMap::new(),
         };
 
         let result = build_logging_components(config);
@@ -942,6 +960,7 @@ mod tests {
             }),
             console_config: None, // Only test file logging
             global_filtering_directive: Some("info".to_string()),
+            field_rename_map: HashMap::new(),
         };
 
         let result = build_logging_components(config);
@@ -1056,5 +1075,96 @@ mod tests {
 
         // Clean up
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_field_rename_map() {
+        let test_writer = TestWriter::new();
+        let rename_map = HashMap::from([
+            ("request_body".to_string(), "message.req_body".to_string()),
+            ("gateway".to_string(), "connector".to_string()),
+        ]);
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::new(),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: rename_map,
+        };
+
+        let layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            info!(
+                request_body = "test_payload",
+                gateway = "stripe",
+                status = "ok",
+                "Test message"
+            );
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        // Renamed fields should appear under new names
+        assert_eq!(log_entry["message.req_body"], "test_payload");
+        assert_eq!(log_entry["connector"], "stripe");
+
+        // Original names should NOT appear
+        assert!(log_entry.get("request_body").is_none());
+        assert!(log_entry.get("gateway").is_none());
+
+        // Non-renamed fields should be unaffected
+        assert_eq!(log_entry["status"], "ok");
+    }
+
+    #[test]
+    fn test_field_rename_map_with_span_fields() {
+        let test_writer = TestWriter::new();
+        let rename_map = HashMap::from([("flow_type".to_string(), "action".to_string())]);
+
+        let storage_layer = SpanStorageLayer::new(HashSet::new());
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::new(),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+            field_rename_map: rename_map,
+        };
+
+        let formatting_layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry()
+            .with(storage_layer)
+            .with(formatting_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = span!(TracingLevel::INFO, "handler", flow_type = "Authorize");
+            let _guard = span.enter();
+            info!("Processing");
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        // Span field should be renamed
+        assert_eq!(log_entry["action"], "Authorize");
+        assert!(log_entry.get("flow_type").is_none());
     }
 }

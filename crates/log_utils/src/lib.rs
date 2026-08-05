@@ -71,6 +71,7 @@
 //!         print_filtering_directive: DirectivePrintTarget::Stdout,
 //!     }),
 //!     global_filtering_directive: Some("info".to_string()),
+//!     field_rename_map: HashMap::new(),
 //! };
 //!
 //! match build_logging_components(config) {
