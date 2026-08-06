@@ -37,7 +37,7 @@ impl SpanStorageLayer {
 ///
 /// This struct is typically stored in a span's extensions via [`SpanStorageLayer`].
 #[derive(Clone, Debug, Default)]
-pub(crate) struct Storage<'a> {
+pub struct Storage<'a> {
     /// The collected key-value pairs for the span.
     values: HashMap<&'a str, serde_json::Value>,
 
@@ -50,7 +50,7 @@ impl<'a> Storage<'a> {
     ///
     /// If the `key` is one of the [`IMPLICIT_KEYS`][crate::keys::IMPLICIT_KEYS],
     /// a warning is logged, and the value is not inserted.
-    pub(crate) fn record_value(&mut self, key: &'a str, value: serde_json::Value) {
+    pub fn record_value(&mut self, key: &'a str, value: serde_json::Value) {
         if super::keys::IMPLICIT_KEYS.contains(key) {
             tracing::warn!(
                 "Attempting to record a reserved key `{key}` (value: {value:?}). Skipping."
@@ -60,12 +60,72 @@ impl<'a> Storage<'a> {
         }
     }
 
-    pub(crate) fn values(&self) -> &HashMap<&'a str, serde_json::Value> {
+    /// Returns the key-value pairs recorded in this storage.
+    pub fn values(&self) -> &HashMap<&'a str, serde_json::Value> {
         &self.values
     }
 
-    pub(crate) fn message(&self) -> Option<&str> {
+    /// Returns the primary message of an event, if captured.
+    pub fn message(&self) -> Option<&str> {
         self.message.as_deref()
+    }
+
+    /// Runs `f` with the [`Storage`] of the current span, if any.
+    ///
+    /// Returns `None` if any of the following conditions hold:
+    ///
+    /// - There is no current span.
+    /// - The current subscriber is not a [`Registry`][tracing_subscriber::Registry]-based
+    ///   subscriber using [`SpanStorageLayer`].
+    /// - The current span has no [`Storage`] associated with it.
+    ///
+    /// Use [`with_current_span_mut()`][Self::with_current_span_mut] to record values into the storage.
+    #[cfg_attr(
+        all(not(feature = "tracing-storage-api"), not(test)),
+        expect(dead_code)
+    )]
+    pub fn with_current_span<T>(f: impl FnOnce(&Storage<'_>) -> T) -> Option<T> {
+        use tracing_subscriber::{Registry, registry::LookupSpan};
+
+        tracing::Span::current()
+            .with_subscriber(|(id, dispatch)| {
+                let registry = dispatch.downcast_ref::<Registry>()?;
+                let span = registry.span(id)?;
+                let extensions = span.extensions();
+                let storage = extensions.get::<Storage<'_>>()?;
+
+                Some(f(storage))
+            })
+            .flatten()
+    }
+
+    /// Runs `f` with the [`Storage`] of the current span, if any.
+    ///
+    /// Returns `None` if any of the following conditions hold:
+    ///
+    /// - There is no current span.
+    /// - The current subscriber is not a [`Registry`][tracing_subscriber::Registry]-based
+    ///   subscriber using [`SpanStorageLayer`].
+    /// - The current span has no [`Storage`] associated with it.
+    ///
+    /// Use [`Self::with_current_span`] to read the storage without modifying it.
+    #[cfg_attr(
+        all(not(feature = "tracing-storage-api"), not(test)),
+        expect(dead_code)
+    )]
+    pub fn with_current_span_mut<T>(f: impl FnOnce(&mut Storage<'_>) -> T) -> Option<T> {
+        use tracing_subscriber::{Registry, registry::LookupSpan};
+
+        tracing::Span::current()
+            .with_subscriber(|(id, dispatch)| {
+                let registry = dispatch.downcast_ref::<Registry>()?;
+                let span = registry.span(id)?;
+                let mut extensions = span.extensions_mut();
+                let storage = extensions.get_mut::<Storage<'_>>()?;
+
+                Some(f(storage))
+            })
+            .flatten()
     }
 }
 
