@@ -46,12 +46,22 @@ pub struct Storage<'a> {
 }
 
 impl<'a> Storage<'a> {
+    /// Returns `true` if `key` is reserved by the logging infrastructure and cannot be recorded
+    /// via [`Self::record_value`].
+    ///
+    /// The reserved keys are: `message`, `level`, `target`, `line`, `file`, `time`, `hostname`,
+    /// `pid`, `thread_id`, `thread_name`, `fn`, `full_name`.
+    /// This list may grow in future releases.
+    pub fn is_reserved(key: &str) -> bool {
+        super::keys::is_reserved(key)
+    }
+
     /// Records a key-value pair into the storage.
     ///
-    /// If the `key` is one of the [`IMPLICIT_KEYS`][crate::keys::IMPLICIT_KEYS],
-    /// a warning is logged, and the value is not inserted.
+    /// If `key` is reserved (see [`is_reserved()`][Self::is_reserved]), a warning is logged,
+    /// and the value is not recorded.
     pub fn record_value(&mut self, key: &'a str, value: serde_json::Value) {
-        if super::keys::IMPLICIT_KEYS.contains(key) {
+        if Self::is_reserved(key) {
             tracing::warn!(
                 "Attempting to record a reserved key `{key}` (value: {value:?}). Skipping."
             );

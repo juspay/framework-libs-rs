@@ -41,7 +41,9 @@ mod keys {
     pub(crate) const FULL_NAME: &str = "full_name";
     pub(crate) const ELAPSED_MILLISECONDS: &str = "elapsed_milliseconds";
 
-    pub(crate) static IMPLICIT_KEYS: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
+    // If you add or remove a key in this list, also update the list documented on
+    // `Storage::is_reserved()`.
+    static RESERVED_KEYS: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
         [
             MESSAGE,
             LEVEL,
@@ -60,6 +62,10 @@ mod keys {
         .copied()
         .collect()
     });
+
+    pub(crate) fn is_reserved(key: &str) -> bool {
+        RESERVED_KEYS.contains(key)
+    }
 }
 
 /// Comprehensive configuration for the entire logging system.
