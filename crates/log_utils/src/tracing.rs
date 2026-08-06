@@ -12,6 +12,11 @@ pub use tracing::Level;
 pub use tracing_appender::rolling::Rotation;
 use tracing_subscriber::{EnvFilter, Layer};
 
+#[cfg_attr(
+    all(not(feature = "tracing-storage-api"), not(test)),
+    expect(unused_imports)
+)]
+pub use self::storage::Storage;
 pub use self::{
     formatter::{JsonFormattingLayer, JsonFormattingLayerConfig, RecordType},
     storage::SpanStorageLayer,
@@ -36,7 +41,9 @@ mod keys {
     pub(crate) const FULL_NAME: &str = "full_name";
     pub(crate) const ELAPSED_MILLISECONDS: &str = "elapsed_milliseconds";
 
-    pub(crate) static IMPLICIT_KEYS: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
+    // If you add or remove a key in this list, also update the list documented on
+    // `Storage::is_reserved()`.
+    static RESERVED_KEYS: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
         [
             MESSAGE,
             LEVEL,
@@ -55,6 +62,10 @@ mod keys {
         .copied()
         .collect()
     });
+
+    pub(crate) fn is_reserved(key: &str) -> bool {
+        RESERVED_KEYS.contains(key)
+    }
 }
 
 /// Comprehensive configuration for the entire logging system.
@@ -992,5 +1003,135 @@ mod tests {
 
         // Clean up
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_with_current_span_reads_storage() {
+        let storage_layer = SpanStorageLayer::new(HashSet::new());
+        let subscriber = tracing_subscriber::registry().with(storage_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            // No span entered yet
+            assert!(Storage::with_current_span(|_storage| ()).is_none());
+
+            let span = span!(TracingLevel::INFO, "my_span", user_id = 42);
+            let _guard = span.enter();
+
+            let user_id =
+                Storage::with_current_span(|storage| storage.values().get("user_id").cloned())
+                    .flatten();
+
+            assert_eq!(user_id, Some(json!(42)));
+        });
+    }
+
+    #[test]
+    fn test_with_current_span_and_with_current_span_mut_read_values_and_message() {
+        let storage_layer = SpanStorageLayer::new(HashSet::new());
+        let subscriber = tracing_subscriber::registry().with(storage_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = span!(
+                TracingLevel::INFO,
+                "my_span",
+                user_id = 42,
+                message = "hello"
+            );
+            let _guard = span.enter();
+
+            let snapshot = Storage::with_current_span(|storage| {
+                (
+                    storage.values().get("user_id").cloned(),
+                    storage.message().map(str::to_owned),
+                )
+            });
+            assert_eq!(snapshot, Some((Some(json!(42)), Some("hello".to_owned()))));
+
+            let snapshot = Storage::with_current_span_mut(|storage| {
+                (
+                    storage.values().get("user_id").cloned(),
+                    storage.message().map(str::to_owned),
+                )
+            });
+            assert_eq!(snapshot, Some((Some(json!(42)), Some("hello".to_owned()))));
+        });
+    }
+
+    #[test]
+    fn test_with_current_span_mut_records_value() {
+        let test_writer = TestWriter::new();
+
+        let config = JsonFormattingLayerConfig {
+            static_top_level_fields: HashMap::new(),
+            top_level_keys: HashSet::new(),
+            log_span_lifecycles: false,
+            additional_fields_placement: AdditionalFieldsPlacement::TopLevel,
+        };
+
+        let storage_layer = SpanStorageLayer::new(HashSet::new());
+        let formatting_layer = JsonFormattingLayer::new(
+            config,
+            test_writer.clone(),
+            serde_json::ser::CompactFormatter,
+        )
+        .unwrap();
+
+        let subscriber = tracing_subscriber::registry()
+            .with(storage_layer)
+            .with(formatting_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = span!(TracingLevel::INFO, "my_span");
+            let _guard = span.enter();
+
+            Storage::with_current_span_mut(|storage| {
+                storage.record_value(
+                    "user_details",
+                    json!({
+                        "name": "John Doe",
+                        "age": 43,
+                        "phones": [
+                            "+44 1234567",
+                            "+44 2345678"
+                        ]
+                    }),
+                );
+            });
+
+            info!("User details");
+        });
+
+        let output = test_writer.get_output();
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let log_entry: Value = serde_json::from_str(lines[0]).unwrap();
+
+        assert!(log_entry["user_details"].is_object());
+        assert_eq!(log_entry["user_details"]["name"], "John Doe");
+        assert_eq!(log_entry["user_details"]["age"], 43);
+        assert_eq!(log_entry["user_details"]["phones"][0], "+44 1234567");
+    }
+
+    #[test]
+    fn test_with_current_span_mut_returns_none_without_current_span() {
+        let storage_layer = SpanStorageLayer::new(HashSet::new());
+        let subscriber = tracing_subscriber::registry().with(storage_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let result = Storage::with_current_span_mut(|_storage| {});
+            assert!(result.is_none());
+        });
+    }
+
+    #[test]
+    fn test_with_current_span_mut_returns_none_without_storage_layer() {
+        let subscriber = tracing_subscriber::registry();
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = span!(TracingLevel::INFO, "my_span");
+            let _guard = span.enter();
+
+            let result = Storage::with_current_span_mut(|_storage| {});
+            assert!(result.is_none());
+        });
     }
 }
