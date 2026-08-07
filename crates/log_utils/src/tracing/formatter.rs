@@ -176,7 +176,7 @@ where
         map_serializer: &mut impl SerializeMap<Error = serde_json::Error>,
         metadata: &Metadata<'_>,
         span: Option<&SpanRef<'_, S>>,
-        storage: Option<&Storage<'_>>,
+        storage: Option<&Storage>,
         name: &str,
         message: &str,
     ) -> Result<(), LoggerError>
@@ -207,13 +207,13 @@ where
                         "Attempting to log a reserved key `{key}` (value: `{value:?}`) via event. \
                          Skipping."
                     );
-                } else if self.top_level_keys.contains(*key) {
+                } else if self.top_level_keys.contains(key.as_str()) {
                     map_serializer.serialize_entry(key, value)?;
-                    explicit_entries_set.insert(*key);
+                    explicit_entries_set.insert(key);
                 } else {
                     if self.additional_fields_placement.is_nested() {
                         if let Some(map) = fields_to_nest.as_mut() {
-                            map.insert(key.to_string(), value.clone());
+                            map.insert(key.clone(), value.clone());
                         }
                     } else {
                         map_serializer.serialize_entry(key, value)?;
@@ -226,22 +226,22 @@ where
         // Serialize span fields
         if let Some(span_ref) = &span {
             let extensions = span_ref.extensions();
-            if let Some(visitor) = extensions.get::<Storage<'_>>() {
+            if let Some(visitor) = extensions.get::<Storage>() {
                 for (key, value) in visitor
                     .values()
                     .iter()
-                    .filter(|(k, _v)| !explicit_entries_set.contains(*k))
+                    .filter(|(k, _v)| !explicit_entries_set.contains(k.as_str()))
                 {
                     if super::keys::is_reserved(key) {
                         tracing::warn!(
                             "Attempting to log a reserved key `{key}` (value: `{value:?}`) via span. \
                              Skipping."
                         );
-                    } else if self.top_level_keys.contains(*key) {
+                    } else if self.top_level_keys.contains(key.as_str()) {
                         map_serializer.serialize_entry(key, value)?;
                     } else if self.additional_fields_placement.is_nested() {
                         if let Some(map) = fields_to_nest.as_mut() {
-                            map.insert(key.to_string(), value.clone());
+                            map.insert(key.clone(), value.clone());
                         }
                     } else {
                         map_serializer.serialize_entry(key, value)?;
@@ -348,7 +348,7 @@ where
     fn event_message<S>(
         span: Option<&SpanRef<'_, S>>,
         event: &Event<'_>,
-        storage: &Storage<'_>,
+        storage: &Storage,
     ) -> String
     where
         S: Subscriber + for<'a> LookupSpan<'a>,

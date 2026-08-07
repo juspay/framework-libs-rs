@@ -36,16 +36,20 @@ impl SpanStorageLayer {
 /// Holds key-value data recorded for a span or an event.
 ///
 /// This struct is typically stored in a span's extensions via [`SpanStorageLayer`].
+///
+/// Keys are owned `String`s, which allows both compile-time field names (from `#[instrument]`
+/// and `span!()` macros) and runtime-determined field names (from configuration or request
+/// metadata) to be stored without requiring `Box::leak` or other lifetime workarounds.
 #[derive(Clone, Debug, Default)]
-pub struct Storage<'a> {
+pub struct Storage {
     /// The collected key-value pairs for the span.
-    values: HashMap<&'a str, serde_json::Value>,
+    values: HashMap<String, serde_json::Value>,
 
     /// The primary message of an event, if captured.
     message: Option<String>,
 }
 
-impl<'a> Storage<'a> {
+impl Storage {
     /// Returns `true` if `key` is reserved by the logging infrastructure and cannot be recorded
     /// via [`Self::record_value`].
     ///
@@ -60,18 +64,18 @@ impl<'a> Storage<'a> {
     ///
     /// If `key` is reserved (see [`is_reserved()`][Self::is_reserved]), a warning is logged,
     /// and the value is not recorded.
-    pub fn record_value(&mut self, key: &'a str, value: serde_json::Value) {
+    pub fn record_value(&mut self, key: &str, value: serde_json::Value) {
         if Self::is_reserved(key) {
             tracing::warn!(
                 "Attempting to record a reserved key `{key}` (value: {value:?}). Skipping."
             );
         } else {
-            self.values.insert(key, value);
+            self.values.insert(key.to_owned(), value);
         }
     }
 
     /// Returns the key-value pairs recorded in this storage.
-    pub fn values(&self) -> &HashMap<&'a str, serde_json::Value> {
+    pub fn values(&self) -> &HashMap<String, serde_json::Value> {
         &self.values
     }
 
@@ -94,7 +98,7 @@ impl<'a> Storage<'a> {
         all(not(feature = "tracing-storage-api"), not(test)),
         expect(dead_code)
     )]
-    pub fn with_current_span<T>(f: impl FnOnce(&Storage<'_>) -> T) -> Option<T> {
+    pub fn with_current_span<T>(f: impl FnOnce(&Storage) -> T) -> Option<T> {
         use tracing_subscriber::{Registry, registry::LookupSpan};
 
         tracing::Span::current()
@@ -102,7 +106,7 @@ impl<'a> Storage<'a> {
                 let registry = dispatch.downcast_ref::<Registry>()?;
                 let span = registry.span(id)?;
                 let extensions = span.extensions();
-                let storage = extensions.get::<Storage<'_>>()?;
+                let storage = extensions.get::<Storage>()?;
 
                 Some(f(storage))
             })
@@ -123,7 +127,7 @@ impl<'a> Storage<'a> {
         all(not(feature = "tracing-storage-api"), not(test)),
         expect(dead_code)
     )]
-    pub fn with_current_span_mut<T>(f: impl FnOnce(&mut Storage<'_>) -> T) -> Option<T> {
+    pub fn with_current_span_mut<T>(f: impl FnOnce(&mut Storage) -> T) -> Option<T> {
         use tracing_subscriber::{Registry, registry::LookupSpan};
 
         tracing::Span::current()
@@ -131,7 +135,7 @@ impl<'a> Storage<'a> {
                 let registry = dispatch.downcast_ref::<Registry>()?;
                 let span = registry.span(id)?;
                 let mut extensions = span.extensions_mut();
-                let storage = extensions.get_mut::<Storage<'_>>()?;
+                let storage = extensions.get_mut::<Storage>()?;
 
                 Some(f(storage))
             })
@@ -140,7 +144,7 @@ impl<'a> Storage<'a> {
 }
 
 // Implement `Visit` to capture span or event fields into the `Storage` map.
-impl Visit for Storage<'_> {
+impl Visit for Storage {
     fn record_f64(&mut self, field: &Field, value: f64) {
         if field.name() == super::keys::MESSAGE {
             if self.message.is_none() {
@@ -230,7 +234,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
         let mut visitor = if let Some(parent_span) = span.parent() {
             parent_span
                 .extensions()
-                .get::<Storage<'_>>()
+                .get::<Storage>()
                 .cloned()
                 .unwrap_or_default()
         } else {
@@ -250,7 +254,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
 
         #[expect(clippy::expect_used)]
         let visitor = extensions
-            .get_mut::<Storage<'_>>()
+            .get_mut::<Storage>()
             .expect("span does not have storage in `on_record()`");
 
         values.record(visitor);
@@ -282,16 +286,16 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
             .unwrap_or(0);
 
         // Propagate persistent keys to parent
-        if let Some(storage) = span.extensions().get::<Storage<'_>>() {
+        if let Some(storage) = span.extensions().get::<Storage>() {
             storage
                 .values
                 .iter()
-                .filter(|(k, _v)| self.persistent_keys.contains(*k))
+                .filter(|(k, _v)| self.persistent_keys.contains(k.as_str()))
                 .for_each(|(k, v)| {
                     span.parent().and_then(|parent_span| {
                         parent_span
                             .extensions_mut()
-                            .get_mut::<Storage<'_>>()
+                            .get_mut::<Storage>()
                             .map(|parent_storage| parent_storage.record_value(k, v.to_owned()))
                     });
                 });
@@ -300,7 +304,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
         let mut extensions = span.extensions_mut();
         #[expect(clippy::expect_used)]
         let visitor = extensions
-            .get_mut::<Storage<'_>>()
+            .get_mut::<Storage>()
             .expect("span does not have storage in `on_close()`");
 
         // Record elapsed time in the span's storage
