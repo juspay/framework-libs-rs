@@ -94,6 +94,7 @@ impl<'a> Storage<'a> {
         all(not(feature = "tracing-storage-api"), not(test)),
         expect(dead_code)
     )]
+    #[allow(clippy::use_self)]
     pub fn with_current_span<T>(f: impl FnOnce(&Storage<'_>) -> T) -> Option<T> {
         use tracing_subscriber::{Registry, registry::LookupSpan};
 
@@ -123,6 +124,7 @@ impl<'a> Storage<'a> {
         all(not(feature = "tracing-storage-api"), not(test)),
         expect(dead_code)
     )]
+    #[allow(clippy::use_self)]
     pub fn with_current_span_mut<T>(f: impl FnOnce(&mut Storage<'_>) -> T) -> Option<T> {
         use tracing_subscriber::{Registry, registry::LookupSpan};
 
