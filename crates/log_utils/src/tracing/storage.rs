@@ -98,7 +98,7 @@ impl Storage {
         all(not(feature = "tracing-storage-api"), not(test)),
         expect(dead_code)
     )]
-    pub fn with_current_span<T>(f: impl FnOnce(&Storage) -> T) -> Option<T> {
+    pub fn with_current_span<T>(f: impl FnOnce(&Self) -> T) -> Option<T> {
         use tracing_subscriber::{Registry, registry::LookupSpan};
 
         tracing::Span::current()
@@ -106,7 +106,7 @@ impl Storage {
                 let registry = dispatch.downcast_ref::<Registry>()?;
                 let span = registry.span(id)?;
                 let extensions = span.extensions();
-                let storage = extensions.get::<Storage>()?;
+                let storage = extensions.get::<Self>()?;
 
                 Some(f(storage))
             })
@@ -127,7 +127,7 @@ impl Storage {
         all(not(feature = "tracing-storage-api"), not(test)),
         expect(dead_code)
     )]
-    pub fn with_current_span_mut<T>(f: impl FnOnce(&mut Storage) -> T) -> Option<T> {
+    pub fn with_current_span_mut<T>(f: impl FnOnce(&mut Self) -> T) -> Option<T> {
         use tracing_subscriber::{Registry, registry::LookupSpan};
 
         tracing::Span::current()
@@ -135,7 +135,7 @@ impl Storage {
                 let registry = dispatch.downcast_ref::<Registry>()?;
                 let span = registry.span(id)?;
                 let mut extensions = span.extensions_mut();
-                let storage = extensions.get_mut::<Storage>()?;
+                let storage = extensions.get_mut::<Self>()?;
 
                 Some(f(storage))
             })
