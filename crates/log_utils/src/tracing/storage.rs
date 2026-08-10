@@ -2,6 +2,7 @@
 //! key-value data from tracing spans.
 
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fmt,
     time::Instant,
@@ -37,13 +38,18 @@ impl SpanStorageLayer {
 ///
 /// This struct is typically stored in a span's extensions via [`SpanStorageLayer`].
 ///
-/// Keys are owned `String`s, which allows both compile-time field names (from `#[instrument]`
-/// and `span!()` macros) and runtime-determined field names (from configuration or request
-/// metadata) to be stored without requiring `Box::leak` or other lifetime workarounds.
+/// Keys use [`Cow<'static, str>`] to get the best of both worlds:
+/// - Compile-time field names (from `#[instrument]` and `span!()` macros) are stored as
+///   `Cow::Borrowed(&'static str)` — zero allocation, just a pointer copy.
+/// - Runtime-determined field names (from configuration or request metadata) are stored as
+///   `Cow::Owned(String)` — owned by Storage and freed when the span closes.
+///
+/// This avoids both the lifetime constraints of `&'a str` keys and the unconditional
+/// allocation overhead of `String` keys for the common case of declared span fields.
 #[derive(Clone, Debug, Default)]
 pub struct Storage {
     /// The collected key-value pairs for the span.
-    values: HashMap<String, serde_json::Value>,
+    values: HashMap<Cow<'static, str>, serde_json::Value>,
 
     /// The primary message of an event, if captured.
     message: Option<String>,
@@ -64,18 +70,24 @@ impl Storage {
     ///
     /// If `key` is reserved (see [`is_reserved()`][Self::is_reserved]), a warning is logged,
     /// and the value is not recorded.
-    pub fn record_value(&mut self, key: &str, value: serde_json::Value) {
-        if Self::is_reserved(key) {
+    ///
+    /// Accepts any type that converts into `Cow<'static, str>`:
+    /// - `&'static str` → zero-copy `Cow::Borrowed`
+    /// - `String` → `Cow::Owned`
+    /// - `Cow<'static, str>` → passed through
+    pub fn record_value(&mut self, key: impl Into<Cow<'static, str>>, value: serde_json::Value) {
+        let key = key.into();
+        if Self::is_reserved(&key) {
             tracing::warn!(
                 "Attempting to record a reserved key `{key}` (value: {value:?}). Skipping."
             );
         } else {
-            self.values.insert(key.to_owned(), value);
+            self.values.insert(key, value);
         }
     }
 
     /// Returns the key-value pairs recorded in this storage.
-    pub fn values(&self) -> &HashMap<String, serde_json::Value> {
+    pub fn values(&self) -> &HashMap<Cow<'static, str>, serde_json::Value> {
         &self.values
     }
 
@@ -144,6 +156,9 @@ impl Storage {
 }
 
 // Implement `Visit` to capture span or event fields into the `Storage` map.
+//
+// `field.name()` returns `&'static str` (field names are baked into the binary by `tracing`),
+// so we use `Cow::Borrowed` here — zero allocation for declared span fields.
 impl Visit for Storage {
     fn record_f64(&mut self, field: &Field, value: f64) {
         if field.name() == super::keys::MESSAGE {
@@ -151,7 +166,8 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.record_value(field.name(), serde_json::Value::from(value));
+            self.values
+                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
         }
     }
 
@@ -161,7 +177,8 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.record_value(field.name(), serde_json::Value::from(value));
+            self.values
+                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
         }
     }
 
@@ -171,7 +188,8 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.record_value(field.name(), serde_json::Value::from(value));
+            self.values
+                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
         }
     }
 
@@ -181,7 +199,8 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.record_value(field.name(), serde_json::Value::from(value));
+            self.values
+                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
         }
     }
 
@@ -189,7 +208,8 @@ impl Visit for Storage {
         if field.name() == super::keys::MESSAGE {
             self.message = Some(value.to_string()); // `record_str()` is preferred for `message`
         } else {
-            self.record_value(field.name(), serde_json::Value::from(value));
+            self.values
+                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
         }
     }
 
@@ -204,16 +224,21 @@ impl Visit for Storage {
                 // Skip fields which are already handled
                 name if name.starts_with("log.") => (),
                 name if name.starts_with("r#") => {
-                    self.record_value(
-                        #[expect(clippy::expect_used)]
-                        name.get(2..).expect(
-                            "field name using raw identifiers must have at least two characters",
-                        ),
+                    #[expect(clippy::expect_used)]
+                    let stripped = name.get(2..).expect(
+                        "field name using raw identifiers must have at least two characters",
+                    );
+                    // Raw identifier prefix is stripped, so we need an owned key
+                    self.values.insert(
+                        Cow::Owned(stripped.to_owned()),
                         serde_json::Value::from(format!("{value:?}")),
                     );
                 }
                 name => {
-                    self.record_value(name, serde_json::Value::from(format!("{value:?}")));
+                    self.values.insert(
+                        Cow::Borrowed(name),
+                        serde_json::Value::from(format!("{value:?}")),
+                    );
                 }
             };
         }
@@ -290,13 +315,17 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
             storage
                 .values
                 .iter()
-                .filter(|(k, _v)| self.persistent_keys.contains(k.as_str()))
+                .filter(|(k, _v)| self.persistent_keys.contains(k.as_ref()))
                 .for_each(|(k, v)| {
                     span.parent().and_then(|parent_span| {
                         parent_span
                             .extensions_mut()
                             .get_mut::<Storage>()
-                            .map(|parent_storage| parent_storage.record_value(k, v.to_owned()))
+                            .map(|parent_storage| {
+                                parent_storage
+                                    .values
+                                    .insert(k.clone(), v.clone());
+                            })
                     });
                 });
         }
