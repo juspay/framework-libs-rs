@@ -158,7 +158,8 @@ impl Storage {
 // Implement `Visit` to capture span or event fields into the `Storage` map.
 //
 // `field.name()` returns `&'static str` (field names are baked into the binary by `tracing`),
-// so we use `Cow::Borrowed` here — zero allocation for declared span fields.
+// so `record_value` receives `&'static str` → `Cow::Borrowed` — zero allocation for declared
+// span fields.
 impl Visit for Storage {
     fn record_f64(&mut self, field: &Field, value: f64) {
         if field.name() == super::keys::MESSAGE {
@@ -166,8 +167,7 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.values
-                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
+            self.record_value(field.name(), serde_json::Value::from(value));
         }
     }
 
@@ -177,8 +177,7 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.values
-                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
+            self.record_value(field.name(), serde_json::Value::from(value));
         }
     }
 
@@ -188,8 +187,7 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.values
-                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
+            self.record_value(field.name(), serde_json::Value::from(value));
         }
     }
 
@@ -199,8 +197,7 @@ impl Visit for Storage {
                 self.message = Some(value.to_string());
             }
         } else {
-            self.values
-                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
+            self.record_value(field.name(), serde_json::Value::from(value));
         }
     }
 
@@ -208,8 +205,7 @@ impl Visit for Storage {
         if field.name() == super::keys::MESSAGE {
             self.message = Some(value.to_string()); // `record_str()` is preferred for `message`
         } else {
-            self.values
-                .insert(Cow::Borrowed(field.name()), serde_json::Value::from(value));
+            self.record_value(field.name(), serde_json::Value::from(value));
         }
     }
 
@@ -225,20 +221,17 @@ impl Visit for Storage {
                 name if name.starts_with("log.") => (),
                 name if name.starts_with("r#") => {
                     #[expect(clippy::expect_used)]
-                    let stripped = name.get(2..).expect(
-                        "field name using raw identifiers must have at least two characters",
-                    );
+                    let stripped = name
+                        .get(2..)
+                        .expect(
+                            "field name using raw identifiers must have at least two characters",
+                        )
+                        .to_owned();
                     // Raw identifier prefix is stripped, so we need an owned key
-                    self.values.insert(
-                        Cow::Owned(stripped.to_owned()),
-                        serde_json::Value::from(format!("{value:?}")),
-                    );
+                    self.record_value(stripped, serde_json::Value::from(format!("{value:?}")));
                 }
                 name => {
-                    self.values.insert(
-                        Cow::Borrowed(name),
-                        serde_json::Value::from(format!("{value:?}")),
-                    );
+                    self.record_value(name, serde_json::Value::from(format!("{value:?}")));
                 }
             };
         }
@@ -322,9 +315,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
                             .extensions_mut()
                             .get_mut::<Storage>()
                             .map(|parent_storage| {
-                                parent_storage
-                                    .values
-                                    .insert(k.clone(), v.clone());
+                                parent_storage.values.insert(k.clone(), v.clone());
                             })
                     });
                 });
