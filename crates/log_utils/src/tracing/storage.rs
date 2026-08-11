@@ -315,7 +315,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
                             .extensions_mut()
                             .get_mut::<Storage>()
                             .map(|parent_storage| {
-                                parent_storage.values.insert(k.clone(), v.clone());
+                                parent_storage.record_value(k.clone(), v.clone());
                             })
                     });
                 });
