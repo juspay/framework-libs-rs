@@ -37,15 +37,6 @@ impl SpanStorageLayer {
 /// Holds key-value data recorded for a span or an event.
 ///
 /// This struct is typically stored in a span's extensions via [`SpanStorageLayer`].
-///
-/// Keys use [`Cow<'static, str>`] to get the best of both worlds:
-/// - Compile-time field names (from `#[instrument]` and `span!()` macros) are stored as
-///   `Cow::Borrowed(&'static str)` — zero allocation, just a pointer copy.
-/// - Runtime-determined field names (from configuration or request metadata) are stored as
-///   `Cow::Owned(String)` — owned by Storage and freed when the span closes.
-///
-/// This avoids both the lifetime constraints of `&'a str` keys and the unconditional
-/// allocation overhead of `String` keys for the common case of declared span fields.
 #[derive(Clone, Debug, Default)]
 pub struct Storage {
     /// The collected key-value pairs for the span.
@@ -70,11 +61,6 @@ impl Storage {
     ///
     /// If `key` is reserved (see [`is_reserved()`][Self::is_reserved]), a warning is logged,
     /// and the value is not recorded.
-    ///
-    /// Accepts any type that converts into `Cow<'static, str>`:
-    /// - `&'static str` → zero-copy `Cow::Borrowed`
-    /// - `String` → `Cow::Owned`
-    /// - `Cow<'static, str>` → passed through
     pub fn record_value(&mut self, key: impl Into<Cow<'static, str>>, value: serde_json::Value) {
         let key = key.into();
         if Self::is_reserved(&key) {
