@@ -8,7 +8,10 @@ mod macros;
 #[doc(hidden)]
 pub use ::opentelemetry::{
     KeyValue, Value, global,
-    metrics::{Counter, Gauge, Histogram, Meter, UpDownCounter},
+    metrics::{
+        AsyncInstrument, Counter, Gauge, Histogram, Meter, ObservableCounter, ObservableGauge,
+        ObservableUpDownCounter, UpDownCounter,
+    },
 };
 #[cfg(feature = "opentelemetry-otlp")]
 pub use opentelemetry_sdk::metrics::Temporality;
