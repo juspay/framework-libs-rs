@@ -19,6 +19,8 @@ mod cassandra;
 #[cfg(feature = "diesel")]
 mod diesel;
 mod maskable;
+#[cfg(feature = "sea-orm")]
+mod sea_orm;
 mod secret;
 #[cfg(feature = "serde")]
 mod serde;
