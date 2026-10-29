@@ -1,8 +1,10 @@
 //! sea-orm support for [`Secret`] and [`StrongSecret`] types.
 
-use sea_orm::{ColIdx, QueryResult, TryGetError, TryGetable, TryGetableArray};
-use sea_query::{
-    ArrayType, ColumnType, Nullable, Value, ValueType, ValueTypeErr, postgres_array::NotU8,
+use sea_orm::{
+    ColIdx, QueryResult, TryGetError, TryGetable, TryGetableArray,
+    sea_query::{
+        ArrayType, ColumnType, Nullable, Value, ValueType, ValueTypeErr, postgres_array::NotU8,
+    },
 };
 
 use crate::{Secret, Strategy, StrongSecret, ZeroizableSecret};

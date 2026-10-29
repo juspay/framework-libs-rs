@@ -2110,7 +2110,6 @@ dependencies = [
  "prost",
  "scylla",
  "sea-orm",
- "sea-query",
  "serde",
  "serde_json",
  "subtle",
