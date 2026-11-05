@@ -74,8 +74,8 @@ impl fmt::Display for RecordType {
 ///
 /// This layer is responsible for serializing log records according to the provided
 /// [`JsonFormattingLayerConfig`].
-/// It includes standard logging metadata (like timestamp, level, target, PID, hostname)
-/// and integrates fields from `static_top_level_fields`, `top_level_keys`,
+/// It includes standard logging metadata (like timestamp, level, target, thread ID, thread name,
+/// PID, hostname) and integrates fields from `static_top_level_fields`, `top_level_keys`,
 /// and other event/span data based on the configuration.
 ///
 /// It requires a [`MakeWriter`] to determine the output destination and a
@@ -113,7 +113,7 @@ where
         let hostname = gethostname::gethostname().to_string_lossy().into_owned();
 
         for key in config.static_top_level_fields.keys() {
-            if super::keys::IMPLICIT_KEYS.contains(key.as_str()) {
+            if super::keys::is_reserved(key.as_str()) {
                 return Err(LoggerError::Configuration(format!(
                     "A reserved key `{key}` was included in `static_top_level_fields` in the \
                      log formatting layer"
@@ -146,6 +146,13 @@ where
         map_serializer.serialize_entry(keys::MESSAGE, message)?;
         map_serializer.serialize_entry(keys::HOSTNAME, &self.hostname)?;
         map_serializer.serialize_entry(keys::PID, &self.pid)?;
+        map_serializer.serialize_entry(
+            keys::THREAD_ID,
+            &format_args!("{:?}", std::thread::current().id()),
+        )?;
+        if let Some(name) = std::thread::current().name() {
+            map_serializer.serialize_entry(keys::THREAD_NAME, name)?;
+        }
         map_serializer.serialize_entry(keys::LEVEL, &format_args!("{}", metadata.level()))?;
         map_serializer.serialize_entry(keys::TARGET, metadata.target())?;
         map_serializer.serialize_entry(keys::LINE, &metadata.line())?;
@@ -169,7 +176,7 @@ where
         map_serializer: &mut impl SerializeMap<Error = serde_json::Error>,
         metadata: &Metadata<'_>,
         span: Option<&SpanRef<'_, S>>,
-        storage: Option<&Storage<'_>>,
+        storage: Option<&Storage>,
         name: &str,
         message: &str,
     ) -> Result<(), LoggerError>
@@ -195,23 +202,24 @@ where
         if let Some(storage) = storage {
             // Serialize event fields
             for (key, value) in storage.values() {
-                if super::keys::IMPLICIT_KEYS.contains(*key) {
+                let key_str: &str = key.as_ref();
+                if super::keys::is_reserved(key_str) {
                     tracing::warn!(
                         "Attempting to log a reserved key `{key}` (value: `{value:?}`) via event. \
                          Skipping."
                     );
-                } else if self.top_level_keys.contains(*key) {
-                    map_serializer.serialize_entry(key, value)?;
-                    explicit_entries_set.insert(*key);
+                } else if self.top_level_keys.contains(key_str) {
+                    map_serializer.serialize_entry(key_str, value)?;
+                    explicit_entries_set.insert(key_str);
                 } else {
                     if self.additional_fields_placement.is_nested() {
                         if let Some(map) = fields_to_nest.as_mut() {
-                            map.insert(key.to_string(), value.clone());
+                            map.insert(key_str.to_owned(), value.clone());
                         }
                     } else {
-                        map_serializer.serialize_entry(key, value)?;
+                        map_serializer.serialize_entry(key_str, value)?;
                     }
-                    explicit_entries_set.insert(key);
+                    explicit_entries_set.insert(key_str);
                 }
             }
         }
@@ -219,37 +227,37 @@ where
         // Serialize span fields
         if let Some(span_ref) = &span {
             let extensions = span_ref.extensions();
-            if let Some(visitor) = extensions.get::<Storage<'_>>() {
+            if let Some(visitor) = extensions.get::<Storage>() {
                 for (key, value) in visitor
                     .values()
                     .iter()
-                    .filter(|(k, _v)| !explicit_entries_set.contains(*k))
+                    .filter(|(k, _v)| !explicit_entries_set.contains(k.as_ref()))
                 {
-                    if super::keys::IMPLICIT_KEYS.contains(*key) {
+                    let key_str: &str = key.as_ref();
+                    if super::keys::is_reserved(key_str) {
                         tracing::warn!(
                             "Attempting to log a reserved key `{key}` (value: `{value:?}`) via span. \
                              Skipping."
                         );
-                    } else if self.top_level_keys.contains(*key) {
-                        map_serializer.serialize_entry(key, value)?;
+                    } else if self.top_level_keys.contains(key_str) {
+                        map_serializer.serialize_entry(key_str, value)?;
                     } else if self.additional_fields_placement.is_nested() {
                         if let Some(map) = fields_to_nest.as_mut() {
-                            map.insert(key.to_string(), value.clone());
+                            map.insert(key_str.to_owned(), value.clone());
                         }
                     } else {
-                        map_serializer.serialize_entry(key, value)?;
+                        map_serializer.serialize_entry(key_str, value)?;
                     }
                 }
             }
         }
 
         // Serialize the collected fields_to_nest if nesting is enabled and if map is not empty
-        if let AdditionalFieldsPlacement::Nested(field_name) = &self.additional_fields_placement {
-            if let Some(map) = fields_to_nest {
-                if !map.is_empty() {
-                    map_serializer.serialize_entry(field_name.as_str(), &map)?;
-                }
-            }
+        if let AdditionalFieldsPlacement::Nested(field_name) = &self.additional_fields_placement
+            && let Some(map) = fields_to_nest
+            && !map.is_empty()
+        {
+            map_serializer.serialize_entry(field_name.as_str(), &map)?;
         }
 
         Ok(())
@@ -342,7 +350,7 @@ where
     fn event_message<S>(
         span: Option<&SpanRef<'_, S>>,
         event: &Event<'_>,
-        storage: &Storage<'_>,
+        storage: &Storage,
     ) -> String
     where
         S: Subscriber + for<'a> LookupSpan<'a>,
@@ -384,7 +392,7 @@ where
 
     fn on_enter(&self, id: &Id, ctx: Context<'_, S>) {
         if self.log_span_lifecycles {
-            #[allow(clippy::expect_used)]
+            #[expect(clippy::expect_used)]
             let span = ctx
                 .span(id)
                 .expect("span with specified id does not exist in `on_enter()`");
@@ -396,7 +404,7 @@ where
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(&id)
             .expect("span with specified id does not exist in `on_close()`");
@@ -407,10 +415,9 @@ where
             span.parent().is_none() // Only log root span exits otherwise
         };
 
-        if should_log_exit {
-            if let Ok(serialized) = self.span_serialize(&span, RecordType::ExitSpan) {
-                let _ = self.flush(serialized);
-            }
+        if should_log_exit && let Ok(serialized) = self.span_serialize(&span, RecordType::ExitSpan)
+        {
+            let _ = self.flush(serialized);
         }
     }
 }

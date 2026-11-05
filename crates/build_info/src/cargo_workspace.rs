@@ -14,7 +14,7 @@
 /// // In your crate's build script (build.rs):
 /// build_info::set_cargo_workspace_members_env();
 /// ```
-#[allow(clippy::expect_used)]
+#[expect(clippy::expect_used)]
 pub fn set_cargo_workspace_members_env() {
     use std::io::Write;
 

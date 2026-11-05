@@ -2,6 +2,7 @@
 //! key-value data from tracing spans.
 
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fmt,
     time::Instant,
@@ -37,21 +38,32 @@ impl SpanStorageLayer {
 ///
 /// This struct is typically stored in a span's extensions via [`SpanStorageLayer`].
 #[derive(Clone, Debug, Default)]
-pub(crate) struct Storage<'a> {
+pub struct Storage {
     /// The collected key-value pairs for the span.
-    values: HashMap<&'a str, serde_json::Value>,
+    values: HashMap<Cow<'static, str>, serde_json::Value>,
 
     /// The primary message of an event, if captured.
     message: Option<String>,
 }
 
-impl<'a> Storage<'a> {
+impl Storage {
+    /// Returns `true` if `key` is reserved by the logging infrastructure and cannot be recorded
+    /// via [`Self::record_value`].
+    ///
+    /// The reserved keys are: `message`, `level`, `target`, `line`, `file`, `time`, `hostname`,
+    /// `pid`, `thread_id`, `thread_name`, `fn`, `full_name`.
+    /// This list may grow in future releases.
+    pub fn is_reserved(key: &str) -> bool {
+        super::keys::is_reserved(key)
+    }
+
     /// Records a key-value pair into the storage.
     ///
-    /// If the `key` is one of the [`IMPLICIT_KEYS`][crate::keys::IMPLICIT_KEYS],
-    /// a warning is logged, and the value is not inserted.
-    pub(crate) fn record_value(&mut self, key: &'a str, value: serde_json::Value) {
-        if super::keys::IMPLICIT_KEYS.contains(key) {
+    /// If `key` is reserved (see [`is_reserved()`][Self::is_reserved]), a warning is logged,
+    /// and the value is not recorded.
+    pub fn record_value(&mut self, key: impl Into<Cow<'static, str>>, value: serde_json::Value) {
+        let key = key.into();
+        if Self::is_reserved(&key) {
             tracing::warn!(
                 "Attempting to record a reserved key `{key}` (value: {value:?}). Skipping."
             );
@@ -60,17 +72,81 @@ impl<'a> Storage<'a> {
         }
     }
 
-    pub(crate) fn values(&self) -> &HashMap<&'a str, serde_json::Value> {
+    /// Returns the key-value pairs recorded in this storage.
+    pub fn values(&self) -> &HashMap<Cow<'static, str>, serde_json::Value> {
         &self.values
     }
 
-    pub(crate) fn message(&self) -> Option<&str> {
+    /// Returns the primary message of an event, if captured.
+    pub fn message(&self) -> Option<&str> {
         self.message.as_deref()
+    }
+
+    /// Runs `f` with the [`Storage`] of the current span, if any.
+    ///
+    /// Returns `None` if any of the following conditions hold:
+    ///
+    /// - There is no current span.
+    /// - The current subscriber is not a [`Registry`][tracing_subscriber::Registry]-based
+    ///   subscriber using [`SpanStorageLayer`].
+    /// - The current span has no [`Storage`] associated with it.
+    ///
+    /// Use [`with_current_span_mut()`][Self::with_current_span_mut] to record values into the storage.
+    #[cfg_attr(
+        all(not(feature = "tracing-storage-api"), not(test)),
+        expect(dead_code)
+    )]
+    pub fn with_current_span<T>(f: impl FnOnce(&Self) -> T) -> Option<T> {
+        use tracing_subscriber::{Registry, registry::LookupSpan};
+
+        tracing::Span::current()
+            .with_subscriber(|(id, dispatch)| {
+                let registry = dispatch.downcast_ref::<Registry>()?;
+                let span = registry.span(id)?;
+                let extensions = span.extensions();
+                let storage = extensions.get::<Self>()?;
+
+                Some(f(storage))
+            })
+            .flatten()
+    }
+
+    /// Runs `f` with the [`Storage`] of the current span, if any.
+    ///
+    /// Returns `None` if any of the following conditions hold:
+    ///
+    /// - There is no current span.
+    /// - The current subscriber is not a [`Registry`][tracing_subscriber::Registry]-based
+    ///   subscriber using [`SpanStorageLayer`].
+    /// - The current span has no [`Storage`] associated with it.
+    ///
+    /// Use [`Self::with_current_span`] to read the storage without modifying it.
+    #[cfg_attr(
+        all(not(feature = "tracing-storage-api"), not(test)),
+        expect(dead_code)
+    )]
+    pub fn with_current_span_mut<T>(f: impl FnOnce(&mut Self) -> T) -> Option<T> {
+        use tracing_subscriber::{Registry, registry::LookupSpan};
+
+        tracing::Span::current()
+            .with_subscriber(|(id, dispatch)| {
+                let registry = dispatch.downcast_ref::<Registry>()?;
+                let span = registry.span(id)?;
+                let mut extensions = span.extensions_mut();
+                let storage = extensions.get_mut::<Self>()?;
+
+                Some(f(storage))
+            })
+            .flatten()
     }
 }
 
 // Implement `Visit` to capture span or event fields into the `Storage` map.
-impl Visit for Storage<'_> {
+//
+// `field.name()` returns `&'static str` (field names are baked into the binary by `tracing`),
+// so `record_value` receives `&'static str` → `Cow::Borrowed` — zero allocation for declared
+// span fields.
+impl Visit for Storage {
     fn record_f64(&mut self, field: &Field, value: f64) {
         if field.name() == super::keys::MESSAGE {
             if self.message.is_none() {
@@ -130,13 +206,15 @@ impl Visit for Storage<'_> {
                 // Skip fields which are already handled
                 name if name.starts_with("log.") => (),
                 name if name.starts_with("r#") => {
-                    self.record_value(
-                        #[allow(clippy::expect_used)]
-                        name.get(2..).expect(
+                    #[expect(clippy::expect_used)]
+                    let stripped = name
+                        .get(2..)
+                        .expect(
                             "field name using raw identifiers must have at least two characters",
-                        ),
-                        serde_json::Value::from(format!("{value:?}")),
-                    );
+                        )
+                        .to_owned();
+                    // Raw identifier prefix is stripped, so we need an owned key
+                    self.record_value(stripped, serde_json::Value::from(format!("{value:?}")));
                 }
                 name => {
                     self.record_value(name, serde_json::Value::from(format!("{value:?}")));
@@ -150,7 +228,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
     for SpanStorageLayer
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(id)
             .expect("span with specified id does not exist in `on_new_span()`");
@@ -160,7 +238,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
         let mut visitor = if let Some(parent_span) = span.parent() {
             parent_span
                 .extensions()
-                .get::<Storage<'_>>()
+                .get::<Storage>()
                 .cloned()
                 .unwrap_or_default()
         } else {
@@ -172,22 +250,22 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
     }
 
     fn on_record(&self, span_id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(span_id)
             .expect("span with specified id does not exist in `on_record()`");
         let mut extensions = span.extensions_mut();
 
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let visitor = extensions
-            .get_mut::<Storage<'_>>()
+            .get_mut::<Storage>()
             .expect("span does not have storage in `on_record()`");
 
         values.record(visitor);
     }
 
     fn on_enter(&self, span_id: &Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(span_id)
             .expect("span with specified id does not exist in `on_enter()`");
@@ -200,7 +278,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let span = ctx
             .span(&id)
             .expect("span with specified id does not exist in `on_close()`");
@@ -212,25 +290,27 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
             .unwrap_or(0);
 
         // Propagate persistent keys to parent
-        if let Some(storage) = span.extensions().get::<Storage<'_>>() {
+        if let Some(storage) = span.extensions().get::<Storage>() {
             storage
                 .values
                 .iter()
-                .filter(|(k, _v)| self.persistent_keys.contains(*k))
+                .filter(|(k, _v)| self.persistent_keys.contains(k.as_ref()))
                 .for_each(|(k, v)| {
                     span.parent().and_then(|parent_span| {
                         parent_span
                             .extensions_mut()
-                            .get_mut::<Storage<'_>>()
-                            .map(|parent_storage| parent_storage.record_value(k, v.to_owned()))
+                            .get_mut::<Storage>()
+                            .map(|parent_storage| {
+                                parent_storage.record_value(k.clone(), v.clone());
+                            })
                     });
                 });
         }
 
         let mut extensions = span.extensions_mut();
-        #[allow(clippy::expect_used)]
+        #[expect(clippy::expect_used)]
         let visitor = extensions
-            .get_mut::<Storage<'_>>()
+            .get_mut::<Storage>()
             .expect("span does not have storage in `on_close()`");
 
         // Record elapsed time in the span's storage
