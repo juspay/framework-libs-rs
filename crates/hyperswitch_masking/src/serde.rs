@@ -143,15 +143,8 @@ mod pii_serializer {
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         // Mask the value if the serializer is of type PIISerializer
-        // or send empty map if the serializer is of type FlatMapSerializer over PiiSerializer
         if std::any::type_name::<S>() == std::any::type_name::<PIISerializer>() {
             format!("{value:?}").serialize(serializer)
-        } else if std::any::type_name::<S>()
-            == std::any::type_name::<
-                serde::__private228::ser::FlatMapSerializer<'_, SerializeMap<PIISerializer>>,
-            >()
-        {
-            std::collections::HashMap::<String, String>::from([]).serialize(serializer)
         } else {
             value.peek().serialize(serializer)
         }
