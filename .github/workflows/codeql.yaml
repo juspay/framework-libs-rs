@@ -10,7 +10,7 @@ on:
       - main
 
   schedule:
-    - cron: "0 0 * * 1-5" # Runs at midnight UTC on weekdays
+    - cron: "30 2 * * 1-5" # Runs at 02:30 UTC (08:00 IST) on weekdays
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
