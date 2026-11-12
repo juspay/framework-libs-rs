@@ -1,7 +1,7 @@
 //! sea-orm support for [`Secret`] and [`StrongSecret`] types.
 
 use sea_orm::{
-    ColIdx, QueryResult, TryGetError, TryGetable, TryGetableArray,
+    ActiveValue, ColIdx, IntoActiveValue, QueryResult, TryGetError, TryGetable, TryGetableArray,
     sea_query::{
         ArrayType, ColumnType, Nullable, Value, ValueType, ValueTypeErr, postgres_array::NotU8,
     },
@@ -74,6 +74,16 @@ where
     S: NotU8,
     I: Strategy<S>,
 {
+}
+
+impl<S, I> IntoActiveValue<Self> for Secret<S, I>
+where
+    S: Into<Value>,
+    I: Strategy<S>,
+{
+    fn into_active_value(self) -> ActiveValue<Self> {
+        ActiveValue::Set(self)
+    }
 }
 
 impl<S, I> TryGetableArray for Secret<S, I>
@@ -152,6 +162,16 @@ where
     S: ZeroizableSecret + NotU8,
     I: Strategy<S>,
 {
+}
+
+impl<S, I> IntoActiveValue<Self> for StrongSecret<S, I>
+where
+    S: ZeroizableSecret + Into<Value> + Clone,
+    I: Strategy<S>,
+{
+    fn into_active_value(self) -> ActiveValue<Self> {
+        ActiveValue::Set(self)
+    }
 }
 
 impl<S, I> TryGetableArray for StrongSecret<S, I>
