@@ -1,4 +1,4 @@
-//! Diesel-related.
+//! Diesel support for [`Secret`] and [`StrongSecret`] types.
 
 use diesel::{
     backend::Backend,
